@@ -1,0 +1,15 @@
+[15:53:23] (cmd) STOP
+[15:53:26] (cmd) CYAN KICKOFF
+[15:53:30] (cmd) START
+[15:53:37] (cmd) STOP
+[15:53:37] Cyan collides ball out
+[15:53:39] (cmd) MAGENTA THROWIN
+[15:53:43] (cmd) START
+[15:54:04] (cmd) STOP
+[15:54:04] Cyan collides ball out
+[15:54:06] (cmd) MAGENTA GOALKICK
+[15:54:10] (cmd) START
+[15:54:19] (cmd) STOP
+[15:54:19] Cyan collides ball out
+[15:54:21] (cmd) MAGENTA GOALKICK
+[15:54:25] (cmd) START
