@@ -24,7 +24,7 @@ from nubot_common.msg import OminiVisionInfo
 from nubot_common.msg import VelCmd
 from nubot_common.srv import *
 from turnHead2Kick import *
-from std_msgs.msg import Bool, Float64MultiArray, Int16
+from std_msgs.msg import Bool, Int16, String, Float32MultiArray
 from std_srvs.srv import Empty
 from strategy.msg import A_info
 import math
@@ -33,8 +33,8 @@ import numpy as np
 
 _state = "null"
 #adjustable parameter
-angle_thres = 0.05 * 1.5 #(*1 a little bit slow)
-RotConst = 4 #4 maybe 6
+angle_thres = 0.05 * 1 #(*1 a little bit slow)
+RotConst = 6 #4 maybe 6
 KickPwr = 2 #2
 MaxSpd_A = 250 #無關 200 or 250
 MaxSpd_B = 150 #無關 200 or 250
@@ -60,13 +60,9 @@ class Strategy(object):
         self.dis2start = 0.0
         self.dis2goal = 0.0
         self.vec = VelCmd()
-        self.A_info = []
+        self.A_info = [0]
+        self.game_count = 2
     def callback(self, data): # Rostopic 之從外部得到的值
-    # rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
-    # print(data.ballinfo.real_pos)
-    # global R 
-    # R = data.ballinfo.real_pos.radius 
-    # global RadHead2Ball # angle to ball
         self.RadHead2Ball = data.ballinfo.real_pos.angle 
         self.RadHead = data.robotinfo[0].heading.theta
         self.BallPosX = data.ballinfo.pos.x
@@ -82,7 +78,9 @@ class Strategy(object):
     # def dis2start_callback(self, data):
     #     self.dis2start = data.data
     def A_info_callback(self, data):
-        self.A_info = np.array(data.list)
+        self.A_info = data.data
+    def state_callback(self,data):
+        self.kick_count = 0
     def ros_init(self):
         if self.team == 'A':
             rospy.init_node('strategy_node_A', anonymous=True)
@@ -91,10 +89,10 @@ class Strategy(object):
             # self.kick_pub = rospy.Publisher('/nubot1/kick', Int16, queue_size=10)
             # self.dis2goal_pub = rospy.Publisher('/nubot1/dis2goal', Float64MultiArray, queue_size=10)
             # self.dis2start_pub = rospy.Publisher('/nubot1/dis2start', Float64MultiArray, queue_size=10)
-            self.A_info_pub = rospy.Publisher('/nubot1/A_info', A_info, queue_size=10) # 3in1
-            
+            self.A_info_pub = rospy.Publisher('/nubot1/A_info', Float32MultiArray, queue_size=1) # 3in1
             self.vel_pub = rospy.Publisher('/nubot1/nubotcontrol/velcmd', VelCmd, queue_size=10)
             rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
+            rospy.Subscriber('/coach/state', String, self.state_callback)
             #Subscriber with call back
             rospy.wait_for_service('/nubot1/BallHandle')
             self.call_Handle = rospy.ServiceProxy('/nubot1/BallHandle', BallHandle)
@@ -113,18 +111,18 @@ class Strategy(object):
             self.call_Shoot = rospy.ServiceProxy('/rival1/Shoot', Shoot)
         else :
             rospy.init_node('coach', anonymous=True)
+            self.state_pub = rospy.Publisher('/coach/state', String, queue_size=10)
             rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
             rospy.Subscriber("/rival1/steal", Bool, self.steal_callback) # steal
             # rospy.Subscriber("/nubot1/kick", Int16, self.kick_callback)
             # rospy.Subscriber("/nubot1/dis2goal", Float64MultiArray, self.dis2goal_callback)
             # rospy.Subscriber("/nubot1/dis2start", Float64MultiArray, self.dis2start_callback)
-            rospy.Subscriber("/nubot1/A_info", A_info, self.A_info_callback)
+            rospy.Subscriber("/nubot1/A_info", Float32MultiArray, self.A_info_callback)
             # self.vel_pub = rospy.Publisher('/nubot1/nubotcontrol/velcmd', VelCmd, queue_size=10)
             # self.call_Handle = rospy.ServiceProxy('/nubot1/BallHandle', BallHandle)
             # self.call_Shoot = rospy.ServiceProxy('/rival1/Shoot', Shoot)
             rospy.wait_for_service('/gazebo/reset_world')
             self.call_restart = rospy.ServiceProxy('/gazebo/reset_world', Empty)
-        
         # service
         # rate = rospy.Rate(1000000000000000000000000)#10
     def ball_out(self):
@@ -151,9 +149,11 @@ class Strategy(object):
         global kick_count
         self.kick_count = self.kick_count + 1
         # self.kick_pub.publish(self.kick_count)
-        A = A_info()
-        A.list = [self.kick_count, self.cal_dis2goal(), self.cal_dis2start()]
-        self.A_info_pub.publish(A)
+        # A = A_info()
+        # A.list = [self.kick_count, self.cal_dis2goal(), self.cal_dis2start()]
+        data = Float32MultiArray()
+        data.data = [self.kick_count, self.cal_dis2goal(), self.cal_dis2start()]
+        self.A_info_pub.publish(data)
         # self.cal_dis2goal()
         # self.cal_dis2start()
         time.sleep(0.05)
@@ -187,14 +187,17 @@ class Strategy(object):
         # self.dis2start_pub.publish(dis2start)
 
     def restart(self):
-        # print('r')
+        game_state = "game is over"
+        self.state_pub.publish(game_state)
         self.Steal = False
-        self.kick_count = 0
         # self.show('restart')
-        self.show('restart')
+        print('Game %d over' %(self.game_count-1))
+        self.show('---Restart---')
+        print('Game %d start' %self.game_count)
+        self.game_count += 1 
         self.call_restart()
     def workA(self):
-        count = 90
+        count = 1
         while not rospy.is_shutdown():
         # while not self.ball_out():
         # ball_out()
@@ -204,16 +207,26 @@ class Strategy(object):
             if not self.call_Handle(1).BallIsHolding:  # BallIsHolding = 0
                 self.call_Handle(1)
                 self.chase(MaxSpd_A)
+                
+                rel_turn_ang = 45
+                rel_turn_rad = math.radians(rel_turn_ang)
+                self.RadTurn = rel_turn_rad + self.RadHead
+                
             else: # BallIsHolding = 1
                 global RadHead
+                # [] you will recieve a relative kick ang (-180~180) rel_turn_ang
+                # print(rel_turn_rad)
+                # print(self.RadTurn)
                 error = math.fabs (turnHead2Kick(self.RadHead, self.RadTurn))
+
                 if error > angle_thres : # 還沒轉到    
                     self.turn(self.RadTurn)
                 else : # 轉到
                     self.kick()
-                    angle4 = [ 0, 1.57, -1.57,3.14 ]
-                    self.RadTurn = angle4[count%4]
-                    count += 1             
+
+                    # angle4 = [ 0, 1.57, -1.57,3.14 ]
+                    # self.RadTurn = angle4[count%4]
+                    # count += 1             
     def workB(self):
         catch = False
         while not rospy.is_shutdown():
@@ -233,18 +246,23 @@ class Strategy(object):
                     self.show('steal')
                     ticks += 5
     def workC(self):
+        print('Game 1 start')
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
+            '''
+            '''
+            # print()
+            '''
+            '''
             is_steal = self.steal()
             is_out = self.ball_out()
             if  is_steal or is_out:
-                # data_pub()
                 print(self.A_info)#3in1
-                # print(self.kick_num)
-                # print(self.dis2goal)
-                # print(self.dis2start)
 
-                self.restart()
+                # []wait for computing then restart
+                self.restart() # 3in1 # print(self.kick_num)# print(self.dis2goal)# print(self.dis2start)
+
+
             # data_pub()
             rate.sleep()
 

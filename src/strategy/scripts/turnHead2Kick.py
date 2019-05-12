@@ -37,10 +37,10 @@ def turnHead2Kick(RadHead, RadKick):
 
     Rad2Kick = 0.0
 
-    if tmp_kick > 3.14 : 
-        Rad2Kick = tmp_kick - 6.28
-    elif tmp_kick <= -3.14 :
-        Rad2Kick = tmp_kick + 6.28
+    if tmp_kick > math.pi : 
+        Rad2Kick = tmp_kick - math.pi*2
+    elif tmp_kick <= -math.pi :
+        Rad2Kick = tmp_kick + math.pi*2
     else :
         Rad2Kick = tmp_kick
 
