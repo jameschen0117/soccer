@@ -27,9 +27,11 @@ from turnHead2Kick import *
 from std_msgs.msg import Bool, Int16, String, Float32MultiArray
 from std_srvs.srv import Empty
 from strategy.msg import A_info
+import env import calculate
 import math
 import time
 import numpy as np
+ 
 
 _state = "null"
 #adjustable parameter
@@ -158,7 +160,6 @@ class Strategy(object):
         # self.cal_dis2start()
         time.sleep(0.05)
         print ("Kick: %d" %self.kick_count)
-
     def chase(self, MaxSpd):
         self.vec.Vx = MaxSpd * math.cos(self.RadHead2Ball)
         self.vec.Vy = MaxSpd * math.sin(self.RadHead2Ball)
@@ -186,6 +187,10 @@ class Strategy(object):
         return dis2start
         # self.dis2start_pub.publish(dis2start)
 
+    # def when_holding(self):
+    #     if fisrt_time_hold = True
+    #     # [] you will recieve a relative kick ang (-180~180) rel_turn_ang from fuzzy
+
     def restart(self):
         game_state = "game is over"
         self.state_pub.publish(game_state)
@@ -198,32 +203,33 @@ class Strategy(object):
         self.call_restart()
     def workA(self):
         count = 1
+        fisrt_time_hold = False
         while not rospy.is_shutdown():
-        # while not self.ball_out():
-        # ball_out()
             res = self.call_Handle(1) #start holding device
-            # print(turn(100))
-            # print(res)
             if not self.call_Handle(1).BallIsHolding:  # BallIsHolding = 0
                 self.call_Handle(1)
                 self.chase(MaxSpd_A)
-                
-                rel_turn_ang = 45
-                rel_turn_rad = math.radians(rel_turn_ang)
-                self.RadTurn = rel_turn_rad + self.RadHead
-                
+                fisrt_time_hold = True
             else: # BallIsHolding = 1
                 global RadHead
-                # [] you will recieve a relative kick ang (-180~180) rel_turn_ang
-                # print(rel_turn_rad)
-                # print(self.RadTurn)
-                error = math.fabs (turnHead2Kick(self.RadHead, self.RadTurn))
+                
+                # [] give input to L
+                
+                # [] recieve output from L
 
-                if error > angle_thres : # 還沒轉到    
-                    self.turn(self.RadTurn)
-                else : # 轉到
-                    self.kick()
-
+                if fisrt_time_hold == True:
+                    
+                    rel_turn_ang = 90
+                    rel_turn_rad = math.radians(rel_turn_ang)
+                    self.RadTurn = rel_turn_rad + self.RadHead
+                    fisrt_time_hold = False
+                else:
+                    fisrt_time_hold = False
+                    error = math.fabs (turnHead2Kick(self.RadHead, self.RadTurn))
+                    if error > angle_thres : # 還沒轉到    
+                        self.turn(self.RadTurn)
+                    else : # 轉到
+                        self.kick()
                     # angle4 = [ 0, 1.57, -1.57,3.14 ]
                     # self.RadTurn = angle4[count%4]
                     # count += 1             
@@ -249,20 +255,13 @@ class Strategy(object):
         print('Game 1 start')
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            '''
-            '''
-            # print()
-            '''
-            '''
             is_steal = self.steal()
             is_out = self.ball_out()
             if  is_steal or is_out:
                 print(self.A_info)#3in1
-
+                 
                 # []wait for computing then restart
                 self.restart() # 3in1 # print(self.kick_num)# print(self.dis2goal)# print(self.dis2start)
-
-
             # data_pub()
             rate.sleep()
 
