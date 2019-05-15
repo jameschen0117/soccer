@@ -12,7 +12,7 @@ class ReplayBuffer(object):
         self.index = 0
 
     def store_transition(self, obs0, act, rwd, obs1, done):
-        print(rwd)
+        # print(rwd)
         data = (obs0, act, rwd, obs1, done)
         if self.capacity >= len(self.buffer):
             self.buffer.append(data)

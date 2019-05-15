@@ -30,7 +30,7 @@ class sac_calculate():
         b = 0.4
         c = 0.3
         # print(reward)
-        reward = a *(t[0]/50)+ b *((1500-t[1])/1500)+ c *(t[2]/1500)
+        reward = a *(t[0]/3)+ b *((1500-t[1])/1500)+ c *(t[2]/1500)
         return reward
 
 

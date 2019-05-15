@@ -154,7 +154,6 @@ class ModelTransfer(object):
         if len(models.name) == 5 + self.my_robot_num + self.oppo_robot_num:
             
             if self.my_robot_num >= 1:
-                print("fuck")
                 x1 = right_goal_x-nubot1_x
                 x2 = nubot1_x - left_goal_x
                 y1 = 6-nubot1_y
@@ -427,6 +426,7 @@ class ModelTransfer(object):
             if self.my_robot_num >= 5:
                 rival5_left_goal_dis = my_math.calDis(
                         x=left_goal_x-rival5_x, y=left_goal_y-rival5_y,
+
                         remainder=3)
                 rival5_left_goal_ang = my_math.calAng(
                         x=left_goal_x-rival5_x, y=left_goal_y-rival5_y, 

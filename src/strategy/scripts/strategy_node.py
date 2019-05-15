@@ -50,8 +50,9 @@ class Strategy(object):
         self.a = []
         self.s = []
         self.r = 0.0
-        
-        self.avg_arr = np.zeros(20)
+        self.done = False
+
+        self.avg_arr = np.zeros(64)
         self.team = team
         self.RadHead2Ball = 0.0
         self.RadHead = 0.0
@@ -94,6 +95,8 @@ class Strategy(object):
         self.kick_count = 0
     def reward_callback(self, data):
         self.r = data.data
+    def done_callback(self, data):
+        self.done = data.data
     
     def ros_init(self):
         if self.team == 'A':
@@ -111,6 +114,7 @@ class Strategy(object):
             rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
             rospy.Subscriber('/coach/state', String, self.state_callback)
             rospy.Subscriber('/coach/reward', Float32, self.reward_callback)
+            rospy.Subscriber('/coach/done', Bool, self.done_callback)
             #Subscriber with call back
             rospy.wait_for_service('/nubot1/BallHandle')
             self.call_Handle = rospy.ServiceProxy('/nubot1/BallHandle', BallHandle)
@@ -130,7 +134,8 @@ class Strategy(object):
         else :
             rospy.init_node('coach', anonymous=True)
             self.state_pub = rospy.Publisher('/coach/state', String, queue_size=10)
-            self.reward_pub = rospy.Publisher('/coach/reward', Float32, queue_size=1) # steal
+            self.reward_pub = rospy.Publisher('/coach/reward', Float32, queue_size=10)
+            self.done_pub = rospy.Publisher('coach/done', Bool, queue_size=10)
             rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
             rospy.Subscriber("/rival1/steal", Bool, self.steal_callback) # steal
             # rospy.Subscriber("/nubot1/kick", Int16, self.kick_callback)
@@ -150,15 +155,25 @@ class Strategy(object):
             return True
         else:
             return False
+
+    def ball_in(self):
+        if self.BallPosX >= 830 and self.BallPosX <= 875 and self.BallPosY >= -170 and self.BallPosY <= 170 :
+            self.show('in')
+            return True
+        else:
+            return False
+
     def steal(self):
         if self.Steal:
             self.show('steal')
         return self.Steal
+
     def show(self, state):
         global _state
         if  state != _state :
             print(state)
         _state = state
+
     def kick(self):
         self.vec.Vx = 0
         self.vec.Vy = 0
@@ -214,7 +229,7 @@ class Strategy(object):
         l = np.append(l, n)
         self.avg_arr = l
         print (self.avg_arr)
-        print (sum(l)/20)  
+        print (sum(l)/64)  
 
 
     def restart(self):
@@ -234,7 +249,6 @@ class Strategy(object):
         fisrt_time_hold = False
         while not rospy.is_shutdown():
             res = self.call_Handle(1) #start holding device
-            # print(self.r)
             if not self.call_Handle(1).BallIsHolding:  # BallIsHolding = 0
                 self.call_Handle(1)
                 self.chase(MaxSpd_A)
@@ -243,25 +257,17 @@ class Strategy(object):
                 global RadHead
                 # [] recieve output from L
                 if fisrt_time_hold == True:
-                    # [sac
-
-                    # print(self.r)
-                    
-                    s_ = self.sac_cal.input()
-                          #state_for_sac
+                    # [sac                    
+                    s_ = self.sac_cal.input()                          #state_for_sac
                     if i > 1:
-                        done = False
-                        print(self.r)
-                        self.agent.replay_buffer.store_transition(self.s, self.a, self.r, s_, done)
+                        self.agent.replay_buffer.store_transition(self.s, self.a, self.r, s_, self.done)
                         self.r = 0
-                    
+                        self.done = False
                     i += 1  
                     self.s = s_
-                    self.a = self.agent.choose_action(self.s)                                #action_from_sac
-                    # print(action[0])
+                    self.a = self.agent.choose_action(self.s)        #action_from_sac
                     rel_turn_ang = self.sac_cal.output(self.a)       #action_from_sac
                     global pwr, MAX_PWR
-                    # print(pwr)
                     pwr = (self.a[1]+1) * MAX_PWR/2 + 0.5    #normalize
                     # sac]
                                        
@@ -294,7 +300,7 @@ class Strategy(object):
                 if not catch:
                     catch = True
                     ticks = time.time()
-                    ticks = ticks + 5 #sec
+                    ticks = ticks + 3 # sec # steal time
                 if time.time() > ticks:
                     self.steal_pub.publish(True)
                     self.show('steal')
@@ -305,13 +311,15 @@ class Strategy(object):
         while not rospy.is_shutdown():
             is_steal = self.steal()
             is_out = self.ball_out()
+            is_in = self.ball_in()
             # print(self.A_info)
-            if  is_steal or is_out:
+            if  is_steal or is_out or is_in:
                 print(self.A_info)#3in1
                 # sac [
                 self.sac_cal = sac_calculate()
                 reward = self.sac_cal.reward(self.A_info) 
                 self.reward_pub.publish(reward)
+                self.done_pub.publish(is_in)
                 # sac ]
                 print(reward)
                 self.avg(reward, self.avg_arr)
