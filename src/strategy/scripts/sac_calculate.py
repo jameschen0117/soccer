@@ -27,10 +27,14 @@ class sac_calculate():
         return action2robot
     def reward(self,t):   
         a = 0.3
-        b = 0.4
-        c = 0.3
+        b = 0.3
+        c = 0.4
+        
         # print(reward)
-        reward = a *(t[0]/3)+ b *((1500-t[1])/1500)+ c *(t[2]/1500)
+        # reward = a *(t[0])+ b *(t[1]/900)+ c *((900-t[2])/900) # + ball_in
+        # reward = 10 * t[0] + 0.5 * t[1] + 10000 * (1/t[2])
+        reward = t[0]
+        
         return reward
 
 

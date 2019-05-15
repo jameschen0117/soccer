@@ -40,8 +40,8 @@ _state = "null"
 angle_thres = 0.05 * 1 #(*1 a little bit slow)
 RotConst = 6 #4 maybe 6
 MAX_PWR = 3 #2 or 3
-MaxSpd_A = 250 #無關 200 or 250
-MaxSpd_B = 150 #無關 200 or 250
+MaxSpd_A = 150 #無關 200 or 250
+MaxSpd_B = 100 #無關 200 or 250
 
 class Strategy(object):
     def __init__(self, team):
@@ -72,7 +72,7 @@ class Strategy(object):
         self.dis2start = 0.0
         self.dis2goal = 0.0
         self.vec = VelCmd()
-        self.A_info = [0, 0, 0]
+        self.A_info = [1, 1, 1]
         self.game_count = 2
     def callback(self, data): # Rostopic 之從外部得到的值
         self.RadHead2Ball = data.ballinfo.real_pos.angle 
@@ -187,7 +187,7 @@ class Strategy(object):
         # A = A_info()
         # A.list = [self.kick_count, self.cal_dis2goal(), self.cal_dis2start()]
         data = Float32MultiArray()
-        data.data = [self.kick_count, self.cal_dis2goal(), self.cal_dis2start()]
+        data.data = [self.kick_count, self.cal_dis2start(), self.cal_dis2goal()]
         self.A_info_pub.publish(data)
         # self.cal_dis2goal()
         # self.cal_dis2start()
@@ -206,19 +206,19 @@ class Strategy(object):
         self.vel_pub.publish(self.vec)
         self.show("Turning")
 
-    def cal_dis2goal(self): # last kick
-        dis2goal_x = self.NunbotAPosX - self.GoalX
-        dis2goal_y = self.NunbotAPosY - self.GoalY
-        dis2goal = math.hypot(dis2goal_x, dis2goal_y)
-        return dis2goal
-        # self.dis2goal_pub.publish(dis2goal)
-
     def cal_dis2start(self): # last kick
         dis2start_x = self.NunbotAPosX - self.StartX
         dis2start_y = self.NunbotAPosY - self.StartY
         dis2start = math.hypot(dis2start_x, dis2start_y)
         return dis2start
         # self.dis2start_pub.publish(dis2start)
+
+    def cal_dis2goal(self): # last kick
+        dis2goal_x = self.NunbotAPosX - self.GoalX
+        dis2goal_y = self.NunbotAPosY - self.GoalY
+        dis2goal = math.hypot(dis2goal_x, dis2goal_y)
+        return dis2goal
+        # self.dis2goal_pub.publish(dis2goal)
 
     # def when_holding(self):
     #     if fisrt_time_hold = True
@@ -257,6 +257,7 @@ class Strategy(object):
                 global RadHead
                 # [] recieve output from L
                 if fisrt_time_hold == True:
+                    
                     # [sac                    
                     s_ = self.sac_cal.input()                          #state_for_sac
                     if i > 1:
