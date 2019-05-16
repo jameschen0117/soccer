@@ -22,19 +22,19 @@ class sac_calculate():
         # print(state)
         return state
     def output(self, action):
-        action2robot = action[0] * 180
+        action2robot = action[0] * 90
         # print(action2robot) 
         return action2robot
     def reward(self,t):   
         a = 0.3
-        b = 0.3
-        c = 0.4
-        
+        b = 0.2
+        c = 0.5
+        d = -1 # out
+        e = 1
         # print(reward)
-        # reward = a *(t[0])+ b *(t[1]/900)+ c *((900-t[2])/900) # + ball_in
+        reward = a *(t[0]/5)+ b *(t[1]/900)+ c *((900-t[2])/900)+ d*t[3] + e*t[4]# + ball_in
         # reward = 10 * t[0] + 0.5 * t[1] + 10000 * (1/t[2])
-        reward = t[0]
-        
+        # reward = 8
         return reward
 
 

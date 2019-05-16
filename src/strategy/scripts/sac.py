@@ -117,6 +117,7 @@ class SAC(object):
         self.q_value2_loss = tf.placeholder(tf.float32, [None, 1], name=self.name+"q_value2_loss")
         self.value_loss = tf.placeholder(tf.float32, [None, 1], name=self.name+"value_loss")
         self.total_value_loss = tf.placeholder(tf.float32, [None, 1], name=self.name+"total_value_loss")
+        self.RWD = tf.placeholder(tf.float32, [], name=self.name+'RWD')
 
         policy = ActorNetwork(self.act_dim, self.name+'Actor')
         q_value_net_1 = QValueNetwork(self.name+'Q_value1')
@@ -165,6 +166,7 @@ class SAC(object):
         tf.summary.scalar(self.name+'q_value2_loss', self.q_value2_loss)
         tf.summary.scalar(self.name+'value_loss', self.value_loss)
         tf.summary.scalar(self.name+'total_value_loss', self.total_value_loss)
+        tf.summary.scalar(self.name+'RWD', self.RWD)
         self.merged = tf.summary.merge_all()
         self.writer = tf.summary.FileWriter('./../logs/'+NAME+'/'+self.name+'/', self.sess.graph)
         self.saver = tf.train.Saver()
@@ -181,10 +183,10 @@ class SAC(object):
         action = np.squeeze(action)
         return action
 
-    def learn(self, indx):
+    def learn(self, indx, reward):
         obs0, act, rwd, obs1, done = self.replay_buffer.sample(batch_size=32)
         feed_dict = {self.OBS0: obs0, self.ACT: act,self.OBS1: obs1, self.RWD: rwd,
-                                                               self.DONE: np.float32(done)}
+                                                               self.DONE: np.float32(done), self.RWD: reward}
         
         if indx is not 0:
             _,result = self.sess.run([self.target_update, self.merged], feed_dict)

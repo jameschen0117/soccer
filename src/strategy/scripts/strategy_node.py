@@ -41,7 +41,8 @@ angle_thres = 0.05 * 1 #(*1 a little bit slow)
 RotConst = 6 #4 maybe 6
 MAX_PWR = 3 #2 or 3
 MaxSpd_A = 150 #無關 200 or 250
-MaxSpd_B = 100 #無關 200 or 250
+MaxSpd_B = 50 #無關 200 or 250
+l_rate = 5.0 # times(*)
 
 class Strategy(object):
     def __init__(self, team):
@@ -62,7 +63,7 @@ class Strategy(object):
         self.BallPosY = 0.0
         self.GoalX = 900.0
         self.GoalY = 0.0
-        self.StartX = 0.0
+        self.StartX = -900.0
         self.StartY = 0.0
         self.kick_count = 0
         self.kick_num = 0 
@@ -101,7 +102,7 @@ class Strategy(object):
     def ros_init(self):
         if self.team == 'A':
             self.agent = SAC(act_dim=2, obs_dim=6,
-            lr_actor=1e-3, lr_value=1e-3, gamma=0.99, tau=0.995)
+            lr_actor=l_rate*(1e-3), lr_value=l_rate*(1e-3), gamma=0.99, tau=0.995)
             
             rospy.init_node('strategy_node_A', anonymous=True)
             #初始化一個節點,命名爲'strategy_node'
@@ -157,7 +158,7 @@ class Strategy(object):
             return False
 
     def ball_in(self):
-        if self.BallPosX >= 830 and self.BallPosX <= 875 and self.BallPosY >= -170 and self.BallPosY <= 170 :
+        if self.BallPosX >= 670 and self.BallPosX <= 875 and self.BallPosY >= -330 and self.BallPosY <= 330 :
             self.show('in')
             return True
         else:
@@ -231,10 +232,9 @@ class Strategy(object):
         print (self.avg_arr)
         print (sum(l)/64)  
 
-
     def restart(self):
-        game_state = "game is over"
-        self.state_pub.publish(game_state)
+        game_state_word = "game is over"
+        self.state_pub.publish(game_state_word)
         self.Steal = False
         # self.show('restart')
         print('Game %d over' %(self.game_count-1))
@@ -243,6 +243,7 @@ class Strategy(object):
         print('Game %d start' %self.game_count)
         self.game_count += 1 
         self.call_restart()
+        
     def workA(self):
         i = 0
         count = 1
@@ -257,26 +258,26 @@ class Strategy(object):
                 global RadHead
                 # [] recieve output from L
                 if fisrt_time_hold == True:
-                    
                     # [sac                    
-                    s_ = self.sac_cal.input()                          #state_for_sac
+                    s_ = self.sac_cal.input()                 #state_for_sac
                     if i > 1:
                         self.agent.replay_buffer.store_transition(self.s, self.a, self.r, s_, self.done)
-                        self.r = 0
+                        print(self.r)
                         self.done = False
                     i += 1  
                     self.s = s_
                     self.a = self.agent.choose_action(self.s)        #action_from_sac
                     rel_turn_ang = self.sac_cal.output(self.a)       #action_from_sac
                     global pwr, MAX_PWR
-                    pwr = (self.a[1]+1) * MAX_PWR/2 + 0.5    #normalize
+                    pwr = (self.a[1]+1) * MAX_PWR/2 + 0.3    #normalize
                     # sac]
                                        
                     rel_turn_rad = math.radians(rel_turn_ang)
                     self.RadTurn = rel_turn_rad + self.RadHead
                     fisrt_time_hold = False
                     if i>64:
-                        self.agent.learn(i)
+                        self.agent.learn(i, self.r)
+                    self.r = 0 
                 else:
                     fisrt_time_hold = False
                     error = math.fabs (turnHead2Kick(self.RadHead, self.RadTurn))
@@ -315,12 +316,16 @@ class Strategy(object):
             is_in = self.ball_in()
             # print(self.A_info)
             if  is_steal or is_out or is_in:
-                print(self.A_info)#3in1
+                # print(self.A_info)#3in1
                 # sac [
                 self.sac_cal = sac_calculate()
+                self.A_info = list(self.A_info)
+                self.A_info.append(is_out) 
+                self.A_info.append(is_in)
+                print(self.A_info) # 5in1 
                 reward = self.sac_cal.reward(self.A_info) 
                 self.reward_pub.publish(reward)
-                self.done_pub.publish(is_in)
+                self.done_pub.publish(True)
                 # sac ]
                 print(reward)
                 self.avg(reward, self.avg_arr)
