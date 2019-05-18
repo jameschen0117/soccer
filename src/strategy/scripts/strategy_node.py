@@ -74,12 +74,13 @@ class Strategy(object):
         self.dis2start = 0.0
         self.dis2goal = 0.0
         self.vec = VelCmd()
-        self.A_info = [1, 1, 1, 1, 1]
+        self.A_info = np.array([1.0, 1.0, 1.0, 1.0, 0, 0, 0])
         self.game_count = 2
         self.A_z = 0.0
         self.B_z = 0.0
         self.HowEnd = 0
         self.B_dis = 0.0
+        self.is_kick = False
     def callback(self, data): # Rostopic 之從外部得到的值
         self.RadHead2Ball = data.ballinfo.real_pos.angle 
         self.RadHead = data.robotinfo[0].heading.theta
@@ -91,7 +92,9 @@ class Strategy(object):
     def steal_callback(self, data):
         self.Steal = data.data
     def A_info_callback(self, data):
-        self.A_info = data.data
+        self.A_info = np.array(data.data)
+        self.is_kick = True
+
     def state_callback(self,data):
         self.kick_count = 0
     def reward_callback(self, data):
@@ -178,6 +181,12 @@ class Strategy(object):
             print(state)
         _state = state
 
+    def pub_rwd2C(self):
+        data = Float32MultiArray()
+        data.data = [self.kick_count, self.cal_dis2start(), self.cal_dis2goal(), self.B_dis, 0, 0, 0]
+        self.A_info_pub.publish(data)
+        print('rwd unit',data.data)
+
     def kick(self):
         self.vec.Vx = 0
         self.vec.Vy = 0
@@ -187,13 +196,7 @@ class Strategy(object):
         self.call_Shoot(pwr, 1) # power from GAFuzzy
         global kick_count
         self.kick_count = self.kick_count + 1
-        # self.kick_pub.publish(self.kick_count)
-        # A = A_info()
-        # A.list = [self.kick_count, self.cal_dis2goal(), self.cal_dis2start()]
-        data = Float32MultiArray()
-        data.data = [self.kick_count, self.cal_dis2start(), self.cal_dis2goal(), self.B_dis, 0]
-        self.A_info_pub.publish(data)
-        time.sleep(0.1)
+        time.sleep(0.2)
         print ("Kick: %d" %self.kick_count)
     def chase(self, MaxSpd):
         self.vec.Vx = MaxSpd * math.cos(self.RadHead2Ball)
@@ -265,8 +268,10 @@ class Strategy(object):
                 elif self.call_Handle(1).BallIsHolding : # BallIsHolding = 1
                     global RadHead
                     if fisrt_time_hold == True:
+                        self.pub_rwd2C()
                         #[]self.r should be here
-                        self.r = 0 
+
+                        print(self.r)  
                         s_ = self.sac_cal.input()                 #state_for_sac
                         if i >= 1:
                             self.agent.replay_buffer.store_transition(self.s, self.a, self.r, s_, self.done)
@@ -276,6 +281,7 @@ class Strategy(object):
                         self.s = s_
                         self.a = self.agent.choose_action(self.s)        #action_from_sac
                         rel_turn_ang = self.sac_cal.output(self.a)       #action_from_sac
+
                         global pwr, MAX_PWR
                         pwr = (self.a[1]+1) * MAX_PWR/2 + 0.5    #normalize
                         # sac]
@@ -285,13 +291,13 @@ class Strategy(object):
                         fisrt_time_hold = False
                         if i > 64:
                             self.agent.learn(i, self.r)
+
                     elif fisrt_time_hold == False:
                         error = math.fabs (turnHead2Kick(self.RadHead, self.RadTurn))
                         if error > angle_thres : # 還沒轉到    
                             self.turn(self.RadTurn)
                         else : # 轉到
                             self.kick()
-                            # [] get reward
     def workB(self):
         catch = False
         while not rospy.is_shutdown():
@@ -314,37 +320,59 @@ class Strategy(object):
     def workC(self):
         print('Game 1 start')
         rate = rospy.Rate(10)
+        np.set_printoptions(suppress=True)
         while not rospy.is_shutdown():
+
             is_stealorfly = self.stealorfly() 
             is_out = self.ball_out()
             is_in = self.ball_in()
 
             # [] send rwd 2 A  
+            
             self.sac_cal = sac_calculate()
-            self.A_info = list(self.A_info)
+            # self.A_info = list(self.A_info)
+
+            # if self.is_kick:
+            self.A_info[4] = 0
+            self.A_info[5] = 0
+            self.A_info[6] = 0
+            
+            reward = self.sac_cal.reward(self.A_info)   # rwd 2 A
+            self.reward_pub.publish(reward) 
+            print('step rwd unit = ', np.around((self.A_info), decimals=1 )) # 7in1 # 7 rwd unit
+            print('step rwd value =',reward)
+                # self.is_kick = False
 
             if  is_in or is_out or is_stealorfly:
                 if is_in:
                     HowEnd = 1
+                    self.A_info[4] = 1
+                    self.A_info[5] = 0
+                    self.A_info[6] = 0
                 if is_stealorfly: 
                     HowEnd = -1
+                    self.A_info[4] = 0
+                    self.A_info[5] = 0
+                    self.A_info[6] = 1
                 if is_out :
                     HowEnd = -2
-                
-                self.A_info[4] = HowEnd
+                    self.A_info[4] = 0
+                    self.A_info[5] = 1
+                    self.A_info[6] = 0
 
-                print('rwd unit =',self.A_info) # 6in1 # 6 rwd unit
-                reward = self.sac_cal.reward(self.A_info) 
-                self.reward_pub.publish(reward)
+                print('rwd unit = ', np.around((self.A_info), decimals=1 )) # 7in1 # 7 rwd unit
 
-                self.done_pub.publish(True)
-                self.HowEnd_pub.publish(HowEnd)
+                reward = self.sac_cal.reward(self.A_info)   # rwd 2 A
+                self.reward_pub.publish(reward)             # rwd 2 A
+                self.done_pub.publish(True) # done 2 A
+                self.HowEnd_pub.publish(HowEnd) # HowEnd 2 A 
 
                 print('rwd value =',reward)
                 
                 self.avg(reward, self.avg_arr)
                 # []wait for computing then restart
-                self.restart() # 3in1 # print(self.kick_num)# print(self.dis2goal)# print(self.dis2start)
+                self.restart() 
+                # 3in1 # print(self.kick_num)# print(self.dis2goal)# print(self.dis2start)
                 time.sleep(0.5)
             rate.sleep()
 

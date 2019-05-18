@@ -31,11 +31,12 @@ class sac_calculate():
         a = 0.3
         b = 0.2
         c = 0.5
-        d = 1 # in
-        e = -2 # out
-        f = -1 # steal or fly
+        d = 0
+        e = 1 # in
+        f = -2 # out
+        g = -1 # steal or fly
         # print(reward)
-        reward = a *(t[0]/5)+ b *(t[1]/900)+ c *((900-t[2])/900)+ d*t[3] + e*t[4] #+ f *t[5]
+        reward = a *(t[0]/5)+ b *(t[1]/FULL_MAX_DIS)+ c *((FULL_MAX_DIS-t[2])/FULL_MAX_DIS)+ d*(t[3]/HALF_MAX_DIS) +e*t[4] + f*t[5] + g*t[6]
         # reward = 10 * t[0] + 0.5 * t[1] + 10000 * (1/t[2])
         # reward = 8
         return reward
