@@ -118,27 +118,31 @@ class Strategy(object):
             lr_actor=l_rate*(1e-3), lr_value=l_rate*(1e-3), gamma=0.99, tau=0.995)
     
             rospy.init_node('strategy_node_A', anonymous=True)
-            self.A_info_pub = rospy.Publisher('/nubot1/A_info', Float32MultiArray, queue_size=10) # 3in1
-            self.vel_pub    = rospy.Publisher('/nubot1/nubotcontrol/velcmd', VelCmd, queue_size=10)
-            self.ready2restart_pub  = rospy.Publisher('nubot1/ready2restart',Bool, queue_size=10)
+            self.A_info_pub = rospy.Publisher('/nubot1/A_info', Float32MultiArray, queue_size=1) # 3in1
+            self.vel_pub    = rospy.Publisher('/nubot1/nubotcontrol/velcmd', VelCmd, queue_size=1)
+            self.ready2restart_pub  = rospy.Publisher('nubot1/ready2restart',Bool, queue_size=1)
             rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
             rospy.Subscriber('/coach/state', String, self.state_callback)
             rospy.Subscriber('/coach/reward', Float32, self.reward_callback)
             rospy.Subscriber('/coach/done', Bool, self.done_callback)
             rospy.Subscriber('coach/HowEnd', Int16, self.HowEnd_callback)
             rospy.Subscriber("/rival1/steal", Bool, self.steal_callback)
+            
             rospy.wait_for_service('/nubot1/BallHandle')
             self.call_Handle = rospy.ServiceProxy('/nubot1/BallHandle', BallHandle)
+            
             rospy.wait_for_service('/nubot1/Shoot')
             self.call_Shoot = rospy.ServiceProxy('/nubot1/Shoot', Shoot)
-            rospy.wait_for_service('/nubot1/Shoot')
-            self.call_restart = rospy.ServiceProxy('/gazebo/reset_world', Empty)
+            
+            rospy.wait_for_service('/gazebo/reset_world')
+            self.call_restart = rospy.ServiceProxy('/gazebo/reset_world', Empty, persistent=True)
+
             rospy.wait_for_service('/rival1/BallHandle')
             self.call_B_Handle = rospy.ServiceProxy('/rival1/BallHandle', BallHandle)
         elif self.team == 'B':
             rospy.init_node('strategy_node_B', anonymous=True)
-            self.vel_pub   = rospy.Publisher('/rival1/nubotcontrol/velcmd', VelCmd, queue_size=10)
-            self.steal_pub = rospy.Publisher('/rival1/steal', Bool, queue_size=10) # steal
+            self.vel_pub   = rospy.Publisher('/rival1/nubotcontrol/velcmd', VelCmd, queue_size=1)
+            self.steal_pub = rospy.Publisher('/rival1/steal', Bool, queue_size=1) # steal
             rospy.Subscriber("/rival1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
             rospy.wait_for_service('/rival1/BallHandle')
             self.call_Handle = rospy.ServiceProxy('/rival1/BallHandle', BallHandle)
@@ -146,10 +150,10 @@ class Strategy(object):
             self.call_Shoot = rospy.ServiceProxy('/rival1/Shoot', Shoot)
         else :
             rospy.init_node('coach', anonymous=True)
-            self.state_pub  = rospy.Publisher('/coach/state', String, queue_size=10)
-            self.reward_pub = rospy.Publisher('/coach/reward', Float32, queue_size=10)
-            self.done_pub   = rospy.Publisher('coach/done', Bool, queue_size=10)
-            self.HowEnd_pub = rospy.Publisher('coach/HowEnd', Int16, queue_size=10)
+            self.state_pub  = rospy.Publisher('/coach/state', String, queue_size=1)
+            self.reward_pub = rospy.Publisher('/coach/reward', Float32, queue_size=1)
+            self.done_pub   = rospy.Publisher('coach/done', Bool, queue_size=1)
+            self.HowEnd_pub = rospy.Publisher('coach/HowEnd', Int16, queue_size=1)
             rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
             rospy.Subscriber("/rival1/steal", Bool, self.steal_callback) # steal
             rospy.Subscriber("/nubot1/A_info", Float32MultiArray, self.A_info_callback)
@@ -277,11 +281,14 @@ class Strategy(object):
         self.show('---Restart---')
         print('Game %d start' %self.game_count)
         self.game_count += 1
-        
         self.kick_count = 0
+
+        rospy.wait_for_service('/gazebo/reset_world')
         self.call_restart()
+        rospy.wait_for_service('/gazebo/reset_world')
+        
         self.ready2restart =False
-        # time.sleep(0.5)
+        
 
     def coach(self):
         pass
@@ -331,12 +338,12 @@ class Strategy(object):
                 if not self.call_Handle(1).BallIsHolding :  # BallIsHolding = 0
                     self.chase(MaxSpd_A)
                     fisrt_time_hold = True
+                    real_resart = True
                 elif self.call_Handle(1).BallIsHolding : # BallIsHolding = 1
                     global RadHead
                     if fisrt_time_hold == True:
                         self.show('Touch')
                         self.r = self.cnt_rwd()
-
                         s_ = self.sac_cal.input(0)                 #state_for_sac
                         if i >= 1:
                             self.agent.replay_buffer.store_transition(self.s, self.a, self.r, s_, self.done)
@@ -362,7 +369,7 @@ class Strategy(object):
                             self.turn(self.RadTurn)
                         else : # 轉到
                             self.kick()
-                            real_resart = True
+                            
     def workB(self):
         # catch = False
         while not rospy.is_shutdown():
@@ -378,7 +385,7 @@ class Strategy(object):
                 #     ticks = time.time()
                 #     ticks = ticks + 3 # sec # steal time
                 # if time.time() > ticks:
-                self.steal_pub.publish(True) # 2C
+                # self.steal_pub.publish(True) # 2C
                 self.show('steal')
                 # ticks += 5
     
