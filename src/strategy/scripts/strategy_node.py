@@ -42,8 +42,8 @@ angle_thres = 0.05 * 1 #(*1 a little bit slow)
 RotConst = 4 #4 maybe 6
 MAX_PWR = 3 #2 or 3
 MaxSpd_A = 150 #無關 200 or 250
-MaxSpd_B = 50 #無關 200 or 250
-l_rate = 5.0 # times(*)
+MaxSpd_B = 30 #無關 200 or 250
+l_rate = 1.0 # times(*)
 
 class Strategy(object):
     def __init__(self, team):
@@ -118,15 +118,15 @@ class Strategy(object):
             lr_actor=l_rate*(1e-3), lr_value=l_rate*(1e-3), gamma=0.99, tau=0.995)
     
             rospy.init_node('strategy_node_A', anonymous=True)
-            self.A_info_pub = rospy.Publisher('/nubot1/A_info', Float32MultiArray, queue_size=1) # 3in1
+            # self.A_info_pub = rospy.Publisher('/nubot1/A_info', Float32MultiArray, queue_size=1) # 3in1
             self.vel_pub    = rospy.Publisher('/nubot1/nubotcontrol/velcmd', VelCmd, queue_size=1)
-            self.ready2restart_pub  = rospy.Publisher('nubot1/ready2restart',Bool, queue_size=1)
+            # self.ready2restart_pub  = rospy.Publisher('nubot1/ready2restart',Bool, queue_size=1)
             rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
-            rospy.Subscriber('/coach/state', String, self.state_callback)
-            rospy.Subscriber('/coach/reward', Float32, self.reward_callback)
-            rospy.Subscriber('/coach/done', Bool, self.done_callback)
-            rospy.Subscriber('coach/HowEnd', Int16, self.HowEnd_callback)
-            rospy.Subscriber("/rival1/steal", Bool, self.steal_callback)
+            # rospy.Subscriber('/coach/state', String, self.state_callback)
+            # rospy.Subscriber('/coach/reward', Float32, self.reward_callback)
+            # rospy.Subscriber('/coach/done', Bool, self.done_callback)
+            # rospy.Subscriber('coach/HowEnd', Int16, self.HowEnd_callback)
+            # rospy.Subscriber("/rival1/steal", Bool, self.steal_callback)
             
             rospy.wait_for_service('/nubot1/BallHandle')
             self.call_Handle = rospy.ServiceProxy('/nubot1/BallHandle', BallHandle)
@@ -319,8 +319,10 @@ class Strategy(object):
                 self.r = self.cnt_rwd()
                 # print('h',self.HowEnd)
                 s_ = self.sac_cal.input(self.HowEnd) #out state
-                if i >= 1:
-                    self.agent.replay_buffer.store_transition(self.s , self.a, self.r, s_, self.done)
+                if i > 1:
+                    if len(self.s) == 11 and len(s_) == 11:
+                        print('000000000000000000',np.shape(self.s), np.shape(self.a))
+                        self.agent.replay_buffer.store_transition(self.s , self.a, self.r, s_, self.done)
                     # print('d',self.done)
                     print('ep rwd value=',self.r)
                 i += 1 
@@ -328,8 +330,8 @@ class Strategy(object):
                 self.done = False
                 if i > 64:
                     self.agent.learn(i, self.r)
-                self.ready2restart_pub.publish(True)
-                self.ready2restart_pub.publish(False)
+                # self.ready2restart_pub.publish(True)
+                # self.ready2restart_pub.publish(False)
                 real_resart = False
                 self.HowEnd=0
                 self.restart()
@@ -346,7 +348,9 @@ class Strategy(object):
                         self.r = self.cnt_rwd()
                         s_ = self.sac_cal.input(0)                 #state_for_sac
                         if i >= 1:
-                            self.agent.replay_buffer.store_transition(self.s, self.a, self.r, s_, self.done)
+                            if len(self.s) == 11 and len(s_) == 11:
+                                print('11111111111111111',np.shape(self.s), np.shape(self.a))
+                                self.agent.replay_buffer.store_transition(self.s, self.a, self.r, s_, self.done)
                             print('step rwd value= ',self.r)
                         self.done = False
                         i += 1  

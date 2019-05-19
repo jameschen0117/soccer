@@ -160,7 +160,9 @@ class SAC(object):
         target_init = [tf.assign(tv, v)
                        for v, tv in zip(tf.global_variables(self.name+'Value'), tf.global_variables(self.name+'Target_Value'))]
 
-        self.sess = tf.Session()
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
+        self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+        # self.sess = tf.Session()
         tf.summary.scalar(self.name+'policy_loss', self.policy_loss)
         tf.summary.scalar(self.name+'q_value1_loss', self.q_value1_loss)
         tf.summary.scalar(self.name+'q_value2_loss', self.q_value2_loss)

@@ -58,12 +58,12 @@ class sac_calculate():
         return action2robot
     def reward(self,t):   
         a = 1
-        b = 0.3
-        c = 0.2
-        d = 0.5
-        e = 1 # in
-        f = -2 # out
-        g = -1 # steal or fly
+        b = 0.5 # goal
+        c = 0.5 # start
+        d = 0.3 # opp
+        e = 5 # in
+        f = -4 # out
+        g = -2 # steal or fly
         # print(reward)
         reward = a *(t[0]/5)+ b *(t[1]/FULL_MAX_DIS)+ c *((FULL_MAX_DIS-t[2])/FULL_MAX_DIS)+ d*(t[3]/HALF_MAX_DIS) +e*t[4] + f*t[5] + g*t[6]
         # reward = 10 * t[0] + 0.5 * t[1] + 10000 * (1/t[2])
