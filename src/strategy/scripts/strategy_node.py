@@ -110,7 +110,7 @@ class Strategy(object):
         self.HowEnd = data.data
     def ready2restart_callback(self, data):
         self.restart()
-        self.ready2restart = True
+        self.ready2restart = False
 
     def ros_init(self):
         if self.team == 'A':
@@ -126,11 +126,15 @@ class Strategy(object):
             rospy.Subscriber('/coach/reward', Float32, self.reward_callback)
             rospy.Subscriber('/coach/done', Bool, self.done_callback)
             rospy.Subscriber('coach/HowEnd', Int16, self.HowEnd_callback)
+            rospy.Subscriber("/rival1/steal", Bool, self.steal_callback)
             rospy.wait_for_service('/nubot1/BallHandle')
             self.call_Handle = rospy.ServiceProxy('/nubot1/BallHandle', BallHandle)
             rospy.wait_for_service('/nubot1/Shoot')
             self.call_Shoot = rospy.ServiceProxy('/nubot1/Shoot', Shoot)
             rospy.wait_for_service('/nubot1/Shoot')
+            self.call_restart = rospy.ServiceProxy('/gazebo/reset_world', Empty)
+            rospy.wait_for_service('/rival1/BallHandle')
+            self.call_B_Handle = rospy.ServiceProxy('/rival1/BallHandle', BallHandle)
         elif self.team == 'B':
             rospy.init_node('strategy_node_B', anonymous=True)
             self.vel_pub   = rospy.Publisher('/rival1/nubotcontrol/velcmd', VelCmd, queue_size=10)
@@ -171,10 +175,16 @@ class Strategy(object):
             return True
         else:
             return False
+    def steal(self):
+        if self.call_B_Handle(1).BallIsHolding:
+            return True
+        else:
+            return False
+        
 
     def stealorfly(self):
-        if self.Steal or self.fly():
-            if self.Steal:
+        if self.steal() or self.fly():
+            if self.steal():
                 self.show('steal')
             else:
                 self.show('fly')
@@ -191,7 +201,7 @@ class Strategy(object):
     def cnt_rwd(self):
         data = Float32MultiArray()
         data.data = [self.kick_count, self.cal_dis2start(), self.cal_dis2goal(), self.B_dis, 0, 0, 0, 0]
-        if self.done:
+        if self.game_is_done():
             if self.HowEnd == 1:
                 data.data[4] = 1
                 data.data[5] = 0
@@ -204,11 +214,12 @@ class Strategy(object):
                 data.data[4] = 0
                 data.data[5] = 1
                 data.data[6] = 0
-        self.A_info_pub.publish(data) # 2C
+        # self.A_info_pub.publish(data) # 2C
         self.sac_cal = sac_calculate()
         reward = self.sac_cal.reward(data.data)
         data.data[7] = reward
-        print('rwd unit',data.data)
+        print('rwd init',['kck_n  g_dis st_dis  opp_dis  in    out   steal   ttl'])
+        print('rwd unit',np.around((data.data), decimals=1 ))
         print('rwd :',reward)
         return(reward)
         
@@ -223,6 +234,7 @@ class Strategy(object):
         self.kick_count = self.kick_count + 1
         time.sleep(0.2)
         print ("Kick: %d" %self.kick_count)
+        print('---')
     def chase(self, MaxSpd):
         self.vec.Vx = MaxSpd * math.cos(self.RadHead2Ball)
         self.vec.Vy = MaxSpd * math.sin(self.RadHead2Ball)
@@ -258,25 +270,45 @@ class Strategy(object):
         print (sum(l)/64)  
 
     def restart(self):
-        game_state_word = "game is over"
-        self.state_pub.publish(game_state_word) # 2A
+        # game_state_word = "game is over"
+        # self.state_pub.publish(game_state_word) # 2A
         self.Steal = False
         print('Game %d over' %(self.game_count-1))
         self.show('---Restart---')
         print('Game %d start' %self.game_count)
         self.game_count += 1
         
+        self.kick_count = 0
         self.call_restart()
         self.ready2restart =False
-        time.sleep(0.5)
+        # time.sleep(0.5)
+
+    def coach(self):
+        pass
+    def game_is_done(self):
+        if self.ball_in() or self.ball_out() or self.stealorfly():
+            if self.ball_in():
+                self.HowEnd = 1
+            if self.ball_out():
+                self.HowEnd = -2
+            if self.stealorfly():
+                self.HowEnd = -1
+            return True
+        else:
+            return False
+
+
 
     def workA(self):
+        np.set_printoptions(suppress=True)
         i = 0
         fisrt_time_hold = False
+        real_resart = True
         while not rospy.is_shutdown():
+            # print(self.ball_in(), self.ball_out(), self.stealorfly())
             self.call_Handle(1) # open holding device
-            if self.done:
-                # [] out rwd
+
+            if self.game_is_done() and real_resart:
                 self.r = self.cnt_rwd()
                 # print('h',self.HowEnd)
                 s_ = self.sac_cal.input(self.HowEnd) #out state
@@ -286,16 +318,17 @@ class Strategy(object):
                     print('ep rwd value=',self.r)
                 i += 1 
                 self.s = s_
-                self.ready2restart_pub.publish(True)
                 self.done = False
-                self.HowEnd=0
                 if i > 64:
                     self.agent.learn(i, self.r)
-                print('---')
-
-            elif not self.done : # [] 0
+                self.ready2restart_pub.publish(True)
+                self.ready2restart_pub.publish(False)
+                real_resart = False
+                self.HowEnd=0
+                self.restart()
+                # print('---')
+            elif not self.game_is_done():
                 if not self.call_Handle(1).BallIsHolding :  # BallIsHolding = 0
-                    self.call_Handle(1)
                     self.chase(MaxSpd_A)
                     fisrt_time_hold = True
                 elif self.call_Handle(1).BallIsHolding : # BallIsHolding = 1
@@ -323,21 +356,21 @@ class Strategy(object):
                         fisrt_time_hold = False
                         if i > 64:
                             self.agent.learn(i, self.r)
-
                     elif fisrt_time_hold == False:
                         error = math.fabs (turnHead2Kick(self.RadHead, self.RadTurn))
                         if error > angle_thres : # 還沒轉到    
                             self.turn(self.RadTurn)
                         else : # 轉到
                             self.kick()
+                            real_resart = True
     def workB(self):
-        catch = False
+        # catch = False
         while not rospy.is_shutdown():
             self.call_Handle(1) #start holding device
             if not self.call_Handle(1).BallIsHolding:  # BallIsHolding = 0
-                self.call_Handle(1)
+                # self.call_Handle(1)
                 self.chase(MaxSpd_B)
-                catch = False
+                # catch = False
             else: # BallIsHolding = 1
                 # self.chase(MaxSpd_B)
                 # if not catch:
@@ -349,6 +382,9 @@ class Strategy(object):
                 self.show('steal')
                 # ticks += 5
     
+    def coach(self):
+        pass
+
     def workC(self):
         print('Game 1 start')
         # rate = rospy.Rate(10)
@@ -375,8 +411,9 @@ class Strategy(object):
             # print('step rwd value =',reward)
             #     # self.is_kick = False
 
-            if  (is_in or is_out or is_stealorfly) and self.ready2restart:
-                self.ready2restart = False
+            if  is_in or is_out or is_stealorfly:
+                # done 2 A
+                # self.ready2restart = False
                 if is_in:
                     HowEnd = 1
                 #     self.A_info[4] = 1
@@ -392,13 +429,17 @@ class Strategy(object):
                 #     self.A_info[4] = 0
                 #     self.A_info[5] = 1
                 #     self.A_info[6] = 0
+                self.HowEnd_pub.publish(HowEnd)
+                self.done_pub.publish(True) 
+                if self.ready2restart:
+                    self.restart()
+                
+                # print('rwd unit = ', np.around((self.A_info), decimals=1 )) # 7in1 # 7 rwd unit
 
-                print('rwd unit = ', np.around((self.A_info), decimals=1 )) # 7in1 # 7 rwd unit
-
-                reward = self.sac_cal.reward(self.A_info)   # rwd 2 A
-                self.reward_pub.publish(reward)             # rwd 2 A
-                self.HowEnd_pub.publish(HowEnd) # HowEnd 2 A
-                self.done_pub.publish(True) # done 2 A
+                # reward = self.sac_cal.reward(self.A_info)   # rwd 2 A
+                # self.reward_pub.publish(reward)             # rwd 2 A
+                 # HowEnd 2 A
+                
                  
 
                 # print('rwd value =',reward)

@@ -49,6 +49,7 @@ class sac_calculate():
         # print(a)
         state[10] = a
         # print('s', np.around((input_list), decimals=1 ))
+        print('s',['a_x  a_y  b_x  b_y      b_dis     g_dis    l_dis end'])
         print('s', np.around((state), decimals=1 ))
         return state
     def output(self, action):
