@@ -1,37 +1,65 @@
 import rospy
 from transfer.msg import PPoint
+from nubot_common.msg import OminiVisionInfo
+import numpy as np
 # Normalization
 HALF_MAX_DIS = 900 #cm
 FULL_MAX_DIS = 1800 #cm
 
 state = []
+HowEnd = 0
+input_list = []
+pos = []
+
+def callback(data):
+    global pos
+    pos=[data.robotinfo[0].pos.x, data.robotinfo[0].pos.y, data.obstacleinfo.pos[0].x, data.obstacleinfo.pos[0].y]
 
 def input2state(data):
-    input_list = [data.rival_An, data.rival_Dis, data.right_angle, data.right_radius, data.border_An, data.border_Dis]
+    global HowEnd
+    global pos
+    global input_list
+    input_list = [0,0,0,0,  
+        data.rival_An, data.rival_Dis, data.right_angle, data.right_radius, data.border_An, data.border_Dis,
+        HowEnd]
+    input_list[0:4] = pos
     # print(input_list)
     global state
-    state = [data.rival_An/180, data.rival_Dis/HALF_MAX_DIS, data.right_angle/180, 
-        data.right_radius/FULL_MAX_DIS, data.border_An/180, data.border_Dis/FULL_MAX_DIS]
+    state = [0,0,0,0,
+        data.rival_An/180, data.rival_Dis/HALF_MAX_DIS, 
+        data.right_angle/180, data.right_radius/FULL_MAX_DIS, 
+        data.border_An/180, data.border_Dis/FULL_MAX_DIS,
+        HowEnd]
+    state[0]=input_list[0]/100
+    state[1]=input_list[1]/100
+    state[2]=input_list[2]/100
+    state[3]=input_list[3]/100
 
 rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo/GoalInfo", PPoint, input2state)
-rospy.Subscriber
+rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, callback)
 
 class sac_calculate():
     def __init__(self):
         pass
-    def input(self):
+    
+    def input(self,a):
         global state
-        # print(state)
+        global input_list
+        global HowEnd
+        # print(a)
+        state[10] = a
+        # print('s', np.around((input_list), decimals=1 ))
+        print('s', np.around((state), decimals=1 ))
         return state
     def output(self, action):
         action2robot = action[0] * 180
         # print(action2robot) 
         return action2robot
     def reward(self,t):   
-        a = 0.3
-        b = 0.2
-        c = 0.5
-        d = 0
+        a = 1
+        b = 0.3
+        c = 0.2
+        d = 0.5
         e = 1 # in
         f = -2 # out
         g = -1 # steal or fly

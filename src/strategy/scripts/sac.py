@@ -105,7 +105,7 @@ class SAC(object):
         self.lr_value = lr_value
         self.gamma = gamma
         self.tau = tau
-        self.name = 'fuck'
+        self.name = 'soccer'
 
         self.OBS0 = tf.placeholder(tf.float32, [None, self.obs_dim], name=self.name+"observations0")
         self.OBS1 = tf.placeholder(tf.float32, [None, self.obs_dim], name=self.name+"observations1")
