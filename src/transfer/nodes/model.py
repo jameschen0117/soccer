@@ -27,25 +27,25 @@ class ModelTransfer(object):
             raise('Robot number error')
             exit(1)
         if self.my_robot_num >= 1:
-            self.nubot1_goal_pub = rospy.Publisher('/nubot1/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=10)
+            self.nubot1_goal_pub = rospy.Publisher('/nubot1/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=100)
         if self.my_robot_num >= 2:
-            self.nubot2_goal_pub = rospy.Publisher('/nubot2/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=10)
+            self.nubot2_goal_pub = rospy.Publisher('/nubot2/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=100)
         if self.my_robot_num >= 3:
-            self.nubot3_goal_pub = rospy.Publisher('/nubot3/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=10)
+            self.nubot3_goal_pub = rospy.Publisher('/nubot3/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=100)
         if self.my_robot_num >= 4:
-            self.nubot4_goal_pub = rospy.Publisher('/nubot4/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=10)
+            self.nubot4_goal_pub = rospy.Publisher('/nubot4/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=100)
         if self.my_robot_num >= 5:
-            self.nubot5_goal_pub = rospy.Publisher('/nubot5/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=10)
+            self.nubot5_goal_pub = rospy.Publisher('/nubot5/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=100)
         if self.oppo_robot_num >= 1:
-            self.rival1_goal_pub = rospy.Publisher('/rival1/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=10)
+            self.rival1_goal_pub = rospy.Publisher('/rival1/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=100)
         if self.oppo_robot_num >= 2:
-            self.rival2_goal_pub = rospy.Publisher('/rival2/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=10)
+            self.rival2_goal_pub = rospy.Publisher('/rival2/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=100)
         if self.oppo_robot_num >= 3:
-            self.rival3_goal_pub = rospy.Publisher('/rival3/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=10)
+            self.rival3_goal_pub = rospy.Publisher('/rival3/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=100)
         if self.oppo_robot_num >= 4:
-            self.rival4_goal_pub = rospy.Publisher('/rival4/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=10)
+            self.rival4_goal_pub = rospy.Publisher('/rival4/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=100)
         if self.oppo_robot_num >= 5:
-            self.rival5_goal_pub = rospy.Publisher('/rival5/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=10)
+            self.rival5_goal_pub = rospy.Publisher('/rival5/omnivision/OmniVisionInfo/GoalInfo', PPoint, queue_size=100)
 
     def getModel(self, models):
 
@@ -140,7 +140,13 @@ class ModelTransfer(object):
                         w=models.pose[index].orientation.w,)
             else:
                 pass
+        
+       
+        
+                
+        
 
+        # rospy.loginfo('robot num: {}'.format(self.my_robot_num))
         if self.my_robot_num <= 0:
             raise('Robot number error')
             exit(1)
@@ -256,13 +262,13 @@ class ModelTransfer(object):
                 nubot1_goal.right_radius = nubot1_right_goal_dis
                 nubot1_goal.rival_Dis = rival_dis
                 nubot1_goal.rival_An = rival_ang
-                nubot1_goal.border_Dis = borderdis*10
+                nubot1_goal.border_Dis = borderdis*100
                 nubot1_goal.border_An = borderan
                 
 
 
                 self.nubot1_goal_pub.publish(nubot1_goal)
-                # print(nubot1_goal)
+                print(nubot1_goal)
             if self.my_robot_num >= 2:
                 nubot2_left_goal_dis = my_math.calDis(
                         x=left_goal_x-nubot2_x, y=left_goal_y-nubot2_y,
@@ -440,8 +446,7 @@ class ModelTransfer(object):
     
 if __name__ == '__main__':
     rospy.init_node('transfer', anonymous=True)
-#     rate = rospy.Rate(10)
+    rate = rospy.Rate(50)
     model_transfer = ModelTransfer()
-#     while not rospy.is_shutdown():
-#        rate.sleep()
-    rospy.spin()
+    #while not rospy.is_shutdown():
+    #    rate.sleep()

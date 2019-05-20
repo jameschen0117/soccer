@@ -2,6 +2,7 @@ import rospy
 from transfer.msg import PPoint
 from nubot_common.msg import OminiVisionInfo
 import numpy as np
+import math 
 # Normalization
 HALF_MAX_DIS = 900 #cm
 FULL_MAX_DIS = 1800 #cm
@@ -13,27 +14,29 @@ pos = []
 
 def callback(data):
     global pos
-    pos=[data.robotinfo[0].pos.x, data.robotinfo[0].pos.y, data.obstacleinfo.pos[0].x, data.obstacleinfo.pos[0].y]
+    pos=[data.robotinfo[0].pos.x, data.robotinfo[0].pos.y, data.robotinfo[0].heading.theta
+        data.obstacleinfo.pos[0].x, data.obstacleinfo.pos[0].y]
 
 def input2state(data):
     global HowEnd
     global pos
     global input_list
-    input_list = [0,0,0,0,  
+    input_list = [0,0,0,0,0,  
         data.rival_An, data.rival_Dis, data.right_angle, data.right_radius, data.border_An, data.border_Dis,
         HowEnd]
-    input_list[0:4] = pos
+    input_list[0:5] = pos
     # print(input_list)
     global state
-    state = [0,0,0,0,
+    state = [0,0,0,0,0,
         data.rival_An/180, data.rival_Dis/HALF_MAX_DIS, 
         data.right_angle/180, data.right_radius/FULL_MAX_DIS, 
         data.border_An/180, data.border_Dis/FULL_MAX_DIS,
         HowEnd]
     state[0]=input_list[0]/100
     state[1]=input_list[1]/100
-    state[2]=input_list[2]/100
+    state[2]=input_list[2]/math.pi
     state[3]=input_list[3]/100
+    state[4]=input_list[4]/100
 
 rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo/GoalInfo", PPoint, input2state)
 rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, callback)
@@ -47,9 +50,9 @@ class sac_calculate():
         global input_list
         global HowEnd
         # print(a)
-        state[10] = a
+        state[11] = a
         # print('s', np.around((input_list), decimals=1 ))
-        print('s',['a_x  a_y  b_x  b_y      b_dis     g_dis    l_dis end'])
+        print('s',['a_x  a_y  ath  b_x  b_y      b_dis     g_dis    l_dis end'])
         print('s', np.around((state), decimals=1 ))
         return state
     def output(self, action):

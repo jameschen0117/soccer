@@ -116,7 +116,7 @@ class Strategy(object):
 
     def ros_init(self):
         if self.team == 'A':
-            self.agent = SAC(act_dim=2, obs_dim=11,
+            self.agent = SAC(act_dim=2, obs_dim=12,
             lr_actor=l_rate*(1e-3), lr_value=l_rate*(1e-3), gamma=0.99, tau=0.995)
     
             rospy.init_node('strategy_node_A', anonymous=True)
@@ -180,6 +180,7 @@ class Strategy(object):
             return True
         else:
             return False
+
     def fly(self):
         if self.A_z > 0.2 or self.B_z > 0.2 :
             return True
@@ -313,14 +314,14 @@ class Strategy(object):
         B_msg.pose.orientation.w = 1
         self.reset_pub.publish(B_msg)
 
-        print('after pop')
+        # print('after pop')
 
     def restart(self):
         # game_state_word = "game is over"
         # self.state_pub.publish(game_state_word) # 2A
         # self.Steal = False
         print('Game %d over' %(self.game_count-1))
-        self.show('---Restart---')
+        self.show('-----------Restart-----------')
         print('Game %d start' %self.game_count)
         self.game_count += 1
         self.kick_count = 0
@@ -333,9 +334,9 @@ class Strategy(object):
         self.reset()
         # self.call_set_modol(SetModelState)
 
-        print('after call_restart')
+        # print('after call_restart')
         self.ready2restart =False
-        print('i finish def restart(self)')
+        # print('i finish def restart(self)')
         
 
     def coach(self):
@@ -352,8 +353,6 @@ class Strategy(object):
         else:
             return False
 
-
-
     def workA(self):
         np.set_printoptions(suppress=True)
         i = 0
@@ -368,8 +367,8 @@ class Strategy(object):
                 # print('h',self.HowEnd)
                 s_ = self.sac_cal.input(self.HowEnd) #out state
                 if i > 1:
-                    if len(self.s) == 11 and len(s_) == 11:
-                        print('000000000000000000',np.shape(self.s), np.shape(self.a))
+                    if len(self.s) == 12 and len(s_) == 12:
+                        # print('000000000000000000',np.shape(self.s), np.shape(self.a))
                         self.agent.replay_buffer.store_transition(self.s , self.a, self.r, s_, self.done)
                     # print('d',self.done)
                     print('ep rwd value=',self.r)
@@ -382,7 +381,7 @@ class Strategy(object):
                 # self.ready2restart_pub.publish(False)
                 real_resart = False
                 self.HowEnd=0
-                print('i want to go in self.restart()')
+                # print('i want to go in self.restart()')
                 self.restart()
                 # print('---')
             elif not self.game_is_done():
@@ -397,8 +396,7 @@ class Strategy(object):
                         self.r = self.cnt_rwd()
                         s_ = self.sac_cal.input(0)                 #state_for_sac
                         if i >= 1:
-                            if len(self.s) == 11 and len(s_) == 11:
-                                # print('11111111111111111',np.shape(self.s), np.shape(self.a))
+                            if len(self.s) == 12 and len(s_) == 12:
                                 self.agent.replay_buffer.store_transition(self.s, self.a, self.r, s_, self.done)
                             print('step rwd value= ',self.r)
                         self.done = False
