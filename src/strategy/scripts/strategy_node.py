@@ -27,9 +27,11 @@ from nubot_common.srv import *
 from turnHead2Kick import *
 from std_msgs.msg import Bool, Int16, String, Float32MultiArray, Float32
 from std_srvs.srv import Empty
+from gazebo_msgs.srv import SetModelState
+from geometry_msgs.msg import Pose, Twist
 # from strategy.msg import A_info
 from sac_calculate import sac_calculate
-from gazebo_msgs.msg import ModelStates
+from gazebo_msgs.msg import ModelState, ModelStates
 import math
 import time
 import numpy as np
@@ -104,8 +106,8 @@ class Strategy(object):
     def done_callback(self, data):
         self.done = data.data
     def fly_callback(self, data):
-        self.A_z = data.pose[5].position.z
-        self.B_z = data.pose[6].position.z
+        self.A_z = data.pos[5].position.z
+        self.B_z = data.pos[6].position.z
     def HowEnd_callback(self,data):
         self.HowEnd = data.data
     def ready2restart_callback(self, data):
@@ -120,6 +122,7 @@ class Strategy(object):
             rospy.init_node('strategy_node_A', anonymous=True)
             # self.A_info_pub = rospy.Publisher('/nubot1/A_info', Float32MultiArray, queue_size=1) # 3in1
             self.vel_pub    = rospy.Publisher('/nubot1/nubotcontrol/velcmd', VelCmd, queue_size=1)
+            self.reset_pub = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size=10)
             # self.ready2restart_pub  = rospy.Publisher('nubot1/ready2restart',Bool, queue_size=1)
             rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
             # rospy.Subscriber('/coach/state', String, self.state_callback)
@@ -134,8 +137,11 @@ class Strategy(object):
             rospy.wait_for_service('/nubot1/Shoot')
             self.call_Shoot = rospy.ServiceProxy('/nubot1/Shoot', Shoot)
             
-            rospy.wait_for_service('/gazebo/reset_world')
-            self.call_restart = rospy.ServiceProxy('/gazebo/reset_world', Empty, persistent=True)
+            # rospy.wait_for_service('/gazebo/reset_simulation')
+            # self.call_restart = rospy.ServiceProxy('/gazebo/reset_simulation', Empty, persistent=True)
+
+            # rospy.wait_for_service('/gazebo/set_model_state')
+            # self.call_set_modol = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
 
             rospy.wait_for_service('/rival1/BallHandle')
             self.call_B_Handle = rospy.ServiceProxy('/rival1/BallHandle', BallHandle)
@@ -157,10 +163,10 @@ class Strategy(object):
             rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
             rospy.Subscriber("/rival1/steal", Bool, self.steal_callback) # steal
             rospy.Subscriber("/nubot1/A_info", Float32MultiArray, self.A_info_callback)
-            rospy.Subscriber('gazebo/model_states', ModelStates, self.fly_callback)
+            # rospy.Subscriber('gazebo/model_states', ModelStates, self.fly_callback)
             rospy.Subscriber('nubot1/ready2restart',Bool , self.ready2restart_callback)
-            rospy.wait_for_service('/gazebo/reset_world')
-            self.call_restart = rospy.ServiceProxy('/gazebo/reset_world', Empty)
+            rospy.wait_for_service('/gazebo/reset_simulation')
+            self.call_restart = rospy.ServiceProxy('/gazebo/reset_simulation', Empty)
     def ball_out(self):
         if self.BallPosX >= 875 or self.BallPosX <= -875 or self.BallPosY >= 590 or self.BallPosY <= -590 :
             self.show('Out')
@@ -273,6 +279,42 @@ class Strategy(object):
         print (self.avg_arr)
         print (sum(l)/64)  
 
+    def reset(self):
+        Ball_msg = ModelState()
+        Ball_msg.model_name = 'football'
+        Ball_msg.pose.position.x = -6.8
+        Ball_msg.pose.position.y = 0
+        Ball_msg.pose.position.z = 0.12
+        Ball_msg.pose.orientation.x = 0
+        Ball_msg.pose.orientation.y = 0
+        Ball_msg.pose.orientation.z = 0
+        Ball_msg.pose.orientation.w = 1
+        self.reset_pub.publish(Ball_msg)
+
+        A_msg = ModelState()
+        A_msg.model_name = 'nubot1'
+        A_msg.pose.position.x = -8.5
+        A_msg.pose.position.y = 0
+        A_msg.pose.position.z = 0
+        A_msg.pose.orientation.x = 0
+        A_msg.pose.orientation.y = 0
+        A_msg.pose.orientation.z = 0
+        A_msg.pose.orientation.w = 1
+        self.reset_pub.publish(A_msg)
+
+        B_msg = ModelState()
+        B_msg.model_name = 'rival1'
+        B_msg.pose.position.x = 0
+        B_msg.pose.position.y = 0
+        B_msg.pose.position.z = 0
+        B_msg.pose.orientation.x = 0
+        B_msg.pose.orientation.y = 0
+        B_msg.pose.orientation.z = 0
+        B_msg.pose.orientation.w = 1
+        self.reset_pub.publish(B_msg)
+
+        print('after pop')
+
     def restart(self):
         # game_state_word = "game is over"
         # self.state_pub.publish(game_state_word) # 2A
@@ -282,10 +324,15 @@ class Strategy(object):
         print('Game %d start' %self.game_count)
         self.game_count += 1
         self.kick_count = 0
-        print('i want to go in rospy.wait_for_service(/gazebo/reset_world)')
-        rospy.wait_for_service('/gazebo/reset_world')
+        '''
+        print('i want to go in rospy.wait_for_service(/gazebo/reset_simulation)')
+        rospy.wait_for_service('/gazebo/reset_simulation')
         print('i want to self.call_restart()')
         self.call_restart()
+        '''
+        self.reset()
+        # self.call_set_modol(SetModelState)
+
         print('after call_restart')
         self.ready2restart =False
         print('i finish def restart(self)')
@@ -472,7 +519,7 @@ class Strategy(object):
     #     return self.score
     
 if __name__ == '__main__':
-    s = Strategy('C')
+    s = Strategy('A')
     s.ros_init()
     while not rospy.is_shutdown():
-        print(s.fly())
+        s.workA()
