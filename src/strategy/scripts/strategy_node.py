@@ -163,7 +163,7 @@ class Strategy(object):
             self.call_restart = rospy.ServiceProxy('/gazebo/reset_world', Empty)
     def ball_out(self):
         if self.BallPosX >= 875 or self.BallPosX <= -875 or self.BallPosY >= 590 or self.BallPosY <= -590 :
-            # self.show('Out')
+            self.show('Out')
             return True
         else:
             return False
@@ -276,18 +276,19 @@ class Strategy(object):
     def restart(self):
         # game_state_word = "game is over"
         # self.state_pub.publish(game_state_word) # 2A
-        self.Steal = False
+        # self.Steal = False
         print('Game %d over' %(self.game_count-1))
         self.show('---Restart---')
         print('Game %d start' %self.game_count)
         self.game_count += 1
         self.kick_count = 0
-
+        print('i want to go in rospy.wait_for_service(/gazebo/reset_world)')
         rospy.wait_for_service('/gazebo/reset_world')
+        print('i want to self.call_restart()')
         self.call_restart()
-        rospy.wait_for_service('/gazebo/reset_world')
-        
+        print('after call_restart')
         self.ready2restart =False
+        print('i finish def restart(self)')
         
 
     def coach(self):
@@ -334,6 +335,7 @@ class Strategy(object):
                 # self.ready2restart_pub.publish(False)
                 real_resart = False
                 self.HowEnd=0
+                print('i want to go in self.restart()')
                 self.restart()
                 # print('---')
             elif not self.game_is_done():
@@ -349,7 +351,7 @@ class Strategy(object):
                         s_ = self.sac_cal.input(0)                 #state_for_sac
                         if i >= 1:
                             if len(self.s) == 11 and len(s_) == 11:
-                                print('11111111111111111',np.shape(self.s), np.shape(self.a))
+                                # print('11111111111111111',np.shape(self.s), np.shape(self.a))
                                 self.agent.replay_buffer.store_transition(self.s, self.a, self.r, s_, self.done)
                             print('step rwd value= ',self.r)
                         self.done = False

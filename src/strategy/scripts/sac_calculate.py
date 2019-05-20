@@ -61,8 +61,8 @@ class sac_calculate():
         b = 0.5 # goal
         c = 0.5 # start
         d = 0.3 # opp
-        e = 5 # in
-        f = -4 # out
+        e = 10 # in 5
+        f = -10 # out -4
         g = -2 # steal or fly
         # print(reward)
         reward = a *(t[0]/5)+ b *(t[1]/FULL_MAX_DIS)+ c *((FULL_MAX_DIS-t[2])/FULL_MAX_DIS)+ d*(t[3]/HALF_MAX_DIS) +e*t[4] + f*t[5] + g*t[6]
