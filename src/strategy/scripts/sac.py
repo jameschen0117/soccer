@@ -188,7 +188,7 @@ class SAC(object):
         return action
 
     def learn(self, indx, reward, ep_rwd):
-        obs0, act, rwd, obs1, done = self.replay_buffer.sample(batch_size=32)
+        obs0, act, rwd, obs1, done = self.replay_buffer.sample(batch_size=128) #32
         feed_dict = {self.OBS0: obs0, self.ACT: act,self.OBS1: obs1, self.RWD: rwd,
                                                                self.DONE: np.float32(done), self.ST_RWD: reward, self.EP_RWD: ep_rwd}
         

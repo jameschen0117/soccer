@@ -44,7 +44,7 @@ angle_thres = 0.05 * 1 #(*1 a little bit slow)
 RotConst = 4 #4 maybe 6
 MAX_PWR = 3 #2 or 3
 MaxSpd_A = 150 #無關 200 or 250
-MaxSpd_B = 30 #無關 200 or 250
+MaxSpd_B = 100 #無關 200 or 250
 l_rate = 1.0 # times(*)
 
 class Strategy(object):
@@ -194,6 +194,26 @@ class Strategy(object):
         else:
             return False
 
+    def workB(self):
+        # catch = False
+        while not rospy.is_shutdown():
+            self.call_Handle(1) #start holding device
+            if not self.call_Handle(1).BallIsHolding:  # BallIsHolding = 0
+                # self.call_Handle(1)
+                self.chase(MaxSpd_B)
+                # catch = False
+            else: # BallIsHolding = 1
+                # self.chase(MaxSpd_B)
+                # if not catch:
+                #     catch = True
+                #     ticks = time.time()
+                #     ticks = ticks + 3 # sec # steal time
+                # if time.time() > ticks:
+                # self.steal_pub.publish(True) # 2C
+                self.show('steal')
+
+                # ticks += 5
+
     def stealorfly(self):
         if self.steal() or self.fly():
             if self.steal():
@@ -236,8 +256,10 @@ class Strategy(object):
         return(reward)
         
     def kick(self):
-        self.vec.Vx = 0
-        self.vec.Vy = 0
+        global MaxSpd_A
+        self.vec.Vx = MaxSpd_A * math.cos(self.RadHead2Ball)
+        self.vec.Vy = MaxSpd_A * math.sin(self.RadHead2Ball)
+        # self.vec.w = self.RadHead2Ball * RotConst
         self.vec.w = 0
         self.vel_pub.publish(self.vec)
         global pwr
@@ -252,10 +274,13 @@ class Strategy(object):
         self.vec.Vy = MaxSpd * math.sin(self.RadHead2Ball)
         self.vec.w = self.RadHead2Ball * RotConst
         self.vel_pub.publish(self.vec)
-        self.show("Chasing")
+        # self.show("Chasing")
     def turn(self, angle):
-        self.vec.Vx = 0
-        self.vec.Vy = 0
+        global MaxSpd_A
+        self.vec.Vx = MaxSpd_A * math.cos(self.RadHead2Ball)
+        self.vec.Vy = MaxSpd_A * math.sin(self.RadHead2Ball)
+        # self.vec.Vx = 0
+        # self.vec.Vy = 0
         self.vec.w = turnHead2Kick(self.RadHead, angle) * RotConst
         self.vel_pub.publish(self.vec)
         self.show("Turning")
@@ -378,7 +403,7 @@ class Strategy(object):
                 i += 1 
                 self.s = s_
                 self.done = False
-                if i > 64:
+                if i > 512: # 64
                     self.agent.learn(i, self.r, self.ep_rwd)
                 # self.ready2restart_pub.publish(True)
                 # self.ready2restart_pub.publish(False)
@@ -396,7 +421,9 @@ class Strategy(object):
                     real_resart = True
                 elif self.call_Handle(1).BallIsHolding : # BallIsHolding = 1
                     global RadHead
+                    self.chase(MaxSpd_A)
                     if fisrt_time_hold == True:
+                        self.chase(MaxSpd_A)
                         self.show('Touch')
                         self.r = self.cnt_rwd()
                         s_ = self.sac_cal.input(0)                 #state_for_sac
@@ -411,15 +438,16 @@ class Strategy(object):
                         rel_turn_ang = self.sac_cal.output(self.a)       #action_from_sac
 
                         global pwr, MAX_PWR
-                        pwr = (self.a[1]+1) * MAX_PWR/2 + 0.5    #normalize
+                        pwr = (self.a[1]+1) * MAX_PWR/2 + 1    #normalize
                         # sac]
                                         
                         rel_turn_rad = math.radians(rel_turn_ang)
                         self.RadTurn = rel_turn_rad + self.RadHead
                         fisrt_time_hold = False
-                        if i > 64:
+                        if i > 512:
                             self.agent.learn(i, self.r, self.ep_rwd)
                     elif fisrt_time_hold == False:
+                        self.chase(MaxSpd_A)
                         error = math.fabs (turnHead2Kick(self.RadHead, self.RadTurn))
                         if error > angle_thres : # 還沒轉到    
                             self.turn(self.RadTurn)
