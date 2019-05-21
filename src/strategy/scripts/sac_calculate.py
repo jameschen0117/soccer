@@ -14,7 +14,7 @@ pos = []
 
 def callback(data):
     global pos
-    pos=[data.robotinfo[0].pos.x, data.robotinfo[0].pos.y, data.robotinfo[0].heading.theta
+    pos=[data.robotinfo[0].pos.x, data.robotinfo[0].pos.y, data.robotinfo[0].heading.theta,
         data.obstacleinfo.pos[0].x, data.obstacleinfo.pos[0].y]
 
 def input2state(data):
@@ -60,7 +60,7 @@ class sac_calculate():
         # print(action2robot) 
         return action2robot
     def reward(self,t):   
-        a = 1
+        a = 0.2
         b = 0.5 # goal
         c = 0.5 # start
         d = 0.3 # opp

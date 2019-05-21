@@ -82,8 +82,10 @@ class Strategy(object):
         self.B_z = 0.0
         self.HowEnd = 0
         self.B_dis = 0.0
+        self.ep_rwd = 0
         self.is_kick = False
         self.ready2restart = True
+        self.list_rate = list(np.zeros(128))
     def callback(self, data): # Rostopic 之從外部得到的值
         self.RadHead2Ball = data.ballinfo.real_pos.angle 
         self.RadHead = data.robotinfo[0].heading.theta
@@ -191,13 +193,12 @@ class Strategy(object):
             return True
         else:
             return False
-        
 
     def stealorfly(self):
         if self.steal() or self.fly():
             if self.steal():
                 self.show('steal')
-            else:
+            elif self.fly():
                 self.show('fly')
             return True
         else:
@@ -280,7 +281,7 @@ class Strategy(object):
         print (self.avg_arr)
         print (sum(l)/64)  
 
-    def reset(self):
+    def reset_ball(self):
         Ball_msg = ModelState()
         Ball_msg.model_name = 'football'
         Ball_msg.pose.position.x = -6.8
@@ -291,7 +292,7 @@ class Strategy(object):
         Ball_msg.pose.orientation.z = 0
         Ball_msg.pose.orientation.w = 1
         self.reset_pub.publish(Ball_msg)
-
+    def reset_A(self):
         A_msg = ModelState()
         A_msg.model_name = 'nubot1'
         A_msg.pose.position.x = -8.5
@@ -302,7 +303,7 @@ class Strategy(object):
         A_msg.pose.orientation.z = 0
         A_msg.pose.orientation.w = 1
         self.reset_pub.publish(A_msg)
-
+    def reset_B(self):
         B_msg = ModelState()
         B_msg.model_name = 'rival1'
         B_msg.pose.position.x = 0
@@ -314,33 +315,33 @@ class Strategy(object):
         B_msg.pose.orientation.w = 1
         self.reset_pub.publish(B_msg)
 
-        # print('after pop')
-
     def restart(self):
         # game_state_word = "game is over"
         # self.state_pub.publish(game_state_word) # 2A
         # self.Steal = False
+        self.reset_ball() 
+        self.reset_ball()
         print('Game %d over' %(self.game_count-1))
         self.show('-----------Restart-----------')
         print('Game %d start' %self.game_count)
+        self.reset_A()
+        self.reset_A() 
         self.game_count += 1
         self.kick_count = 0
-        '''
-        print('i want to go in rospy.wait_for_service(/gazebo/reset_simulation)')
-        rospy.wait_for_service('/gazebo/reset_simulation')
-        print('i want to self.call_restart()')
-        self.call_restart()
-        '''
-        self.reset()
+        self.reset_B()
+        self.reset_B() 
         # self.call_set_modol(SetModelState)
 
         # print('after call_restart')
         self.ready2restart =False
         # print('i finish def restart(self)')
+    def end_rate(self, end):
+        self.list_rate[self.game_count%128] = end
+        out_count = self.list_rate.count(-2)
+        in_count  = self.list_rate.count(1)
+        steal_count=self.list_rate.count(-1)
+        print('in_rate',in_count/128,'out_rate',out_count/128,'steal_rate',steal_count/128)
         
-
-    def coach(self):
-        pass
     def game_is_done(self):
         if self.ball_in() or self.ball_out() or self.stealorfly():
             if self.ball_in():
@@ -371,20 +372,24 @@ class Strategy(object):
                         # print('000000000000000000',np.shape(self.s), np.shape(self.a))
                         self.agent.replay_buffer.store_transition(self.s , self.a, self.r, s_, self.done)
                     # print('d',self.done)
+                    self.ep_rwd = self.r
                     print('ep rwd value=',self.r)
+                    self.end_rate(self.HowEnd)
                 i += 1 
                 self.s = s_
                 self.done = False
                 if i > 64:
-                    self.agent.learn(i, self.r)
+                    self.agent.learn(i, self.r, self.ep_rwd)
                 # self.ready2restart_pub.publish(True)
                 # self.ready2restart_pub.publish(False)
                 real_resart = False
                 self.HowEnd=0
                 # print('i want to go in self.restart()')
                 self.restart()
+                # self.end_rate(self.HowEnd)
                 # print('---')
-            elif not self.game_is_done():
+            # elif not self.game_is_done():
+            else:
                 if not self.call_Handle(1).BallIsHolding :  # BallIsHolding = 0
                     self.chase(MaxSpd_A)
                     fisrt_time_hold = True
@@ -413,7 +418,7 @@ class Strategy(object):
                         self.RadTurn = rel_turn_rad + self.RadHead
                         fisrt_time_hold = False
                         if i > 64:
-                            self.agent.learn(i, self.r)
+                            self.agent.learn(i, self.r, self.ep_rwd)
                     elif fisrt_time_hold == False:
                         error = math.fabs (turnHead2Kick(self.RadHead, self.RadTurn))
                         if error > angle_thres : # 還沒轉到    
@@ -438,6 +443,7 @@ class Strategy(object):
                 # if time.time() > ticks:
                 # self.steal_pub.publish(True) # 2C
                 self.show('steal')
+
                 # ticks += 5
     
     def coach(self):

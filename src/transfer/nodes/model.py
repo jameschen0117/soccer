@@ -446,7 +446,7 @@ class ModelTransfer(object):
     
 if __name__ == '__main__':
     rospy.init_node('transfer', anonymous=True)
-    rate = rospy.Rate(50)
+#     rate = rospy.Rate(50)
     model_transfer = ModelTransfer()
-    #while not rospy.is_shutdown():
-    #    rate.sleep()
+    while not rospy.is_shutdown():
+        rospy.spin
