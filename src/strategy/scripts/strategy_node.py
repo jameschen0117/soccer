@@ -93,6 +93,7 @@ class Strategy(object):
         self.is_steal = False
         self.is_fly = False
         self.is_stealorfly = False
+        self.real_resart = True
     def callback(self, data): # Rostopic 之從外部得到的值
         self.RadHead2Ball = data.ballinfo.real_pos.angle 
         self.RadHead = data.robotinfo[0].heading.theta
@@ -239,15 +240,20 @@ class Strategy(object):
         self.vec.w = 0
         self.vel_pub.publish(self.vec)
         global pwr
-        rospy.wait_for_service('/nubot1/Shoot')
+        # rospy.wait_for_service('/nubot1/Shoot')
         self.call_Shoot(pwr, 1) # power from GAFuzzy
         while 1 :
+            self.chase(MaxSpd_A)
+            if self.game_is_done() and self.real_resart:
+                break
             if not self.call_Handle(1).BallIsHolding:
                 self.kick_count = self.kick_count + 1
                 # time.sleep(0.2)
                 print ("Kick: %d" %self.kick_count)
                 print('-------')
                 break
+            print('in')
+                
             
     def chase(self, MaxSpd):
         self.vec.Vx = MaxSpd * math.cos(self.RadHead2Ball)
@@ -402,13 +408,11 @@ class Strategy(object):
         np.set_printoptions(suppress=True)
         i = 0
         fisrt_time_hold = False
-        real_resart = True
         while not rospy.is_shutdown():
             # print(self.ball_in(), self.ball_out(), self.stealorfly())
             rospy.wait_for_service('/nubot1/BallHandle')
             self.call_Handle(1) # open holding device
-            j = 0
-            if self.game_is_done() and real_resart:
+            if self.game_is_done() and self.real_resart:
                 # print('self.game_is_done()',self.game_is_done())
                 self.r = self.cnt_rwd()
                 # print('h',self.HowEnd)
@@ -428,7 +432,7 @@ class Strategy(object):
                     self.agent.learn(i, self.r, self.ep_rwd)
                 # self.ready2restart_pub.publish(True)
                 # self.ready2restart_pub.publish(False)
-                real_resart = False
+                self.real_resart = False
                 self.HowEnd = 0
                 # print('i want to go in self.restart()')
                 self.restart()
@@ -454,7 +458,7 @@ class Strategy(object):
                     global RadHead
                     self.chase(MaxSpd_A)
                     if fisrt_time_hold == True:
-                        real_resart = True #
+                        self.real_resart = True #
                         self.chase(MaxSpd_A)
                         self.show('Touch')
                         self.r = self.cnt_rwd()
@@ -470,7 +474,7 @@ class Strategy(object):
                         rel_turn_ang = self.sac_cal.output(self.a)       #action_from_sac
 
                         global pwr, MAX_PWR
-                        pwr = (self.a[1]+1) * MAX_PWR/2 + 1    #normalize
+                        pwr = (self.a[1]+1) * MAX_PWR/2 + 1.3    #normalize
                         # sac]
                                         
                         rel_turn_rad = math.radians(rel_turn_ang)
