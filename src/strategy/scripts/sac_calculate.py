@@ -60,7 +60,7 @@ class sac_calculate():
         # print(action2robot) 
         return action2robot
     def reward(self,t):   
-        a = 0.5
+        a = 1 # 1 kick / avg = 5 kicks i wish
         b = 0.5 # goal
         c = 0.5 # start
         d = 0.3 # opp

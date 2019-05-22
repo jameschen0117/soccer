@@ -44,7 +44,7 @@ angle_thres = 0.05 * 1 #(*1 a little bit slow)
 RotConst = 3 #4 maybe 6 # ? max = 3 
 MAX_PWR = 2 #2 or 3
 MaxSpd_A = 100 #無關 200 or 250
-MaxSpd_B = 100 #無關 200 or 250
+MaxSpd_B = 90 #無關 200 or 250
 l_rate = 1.0 # times(*)
 
 class Strategy(object):
@@ -241,12 +241,14 @@ class Strategy(object):
         global pwr
         rospy.wait_for_service('/nubot1/Shoot')
         self.call_Shoot(pwr, 1) # power from GAFuzzy
-        global kick_count
-        self.kick_count = self.kick_count + 1
-        time.sleep(0.2)
-        print ("Kick: %d" %self.kick_count)
-        print('---')
-
+        while 1 :
+            if not self.call_Handle(1).BallIsHolding:
+                self.kick_count = self.kick_count + 1
+                # time.sleep(0.2)
+                print ("Kick: %d" %self.kick_count)
+                print('-------')
+                break
+            
     def chase(self, MaxSpd):
         self.vec.Vx = MaxSpd * math.cos(self.RadHead2Ball)
         self.vec.Vy = MaxSpd * math.sin(self.RadHead2Ball)
@@ -255,7 +257,7 @@ class Strategy(object):
     def chase_B(self, MaxSpd):
         self.vec.Vx = MaxSpd * math.cos(self.RadHead2Ball)
         self.vec.Vy = MaxSpd * math.sin(self.RadHead2Ball)
-        self.vec.w = self.RadHead2Ball * RotConst/2
+        self.vec.w = self.RadHead2Ball * RotConst/4
         self.vel_pub.publish(self.vec)
         # self.show("Chasing")
     def turn(self, angle):
@@ -405,7 +407,7 @@ class Strategy(object):
             # print(self.ball_in(), self.ball_out(), self.stealorfly())
             rospy.wait_for_service('/nubot1/BallHandle')
             self.call_Handle(1) # open holding device
-            
+            j = 0
             if self.game_is_done() and real_resart:
                 # print('self.game_is_done()',self.game_is_done())
                 self.r = self.cnt_rwd()
@@ -433,6 +435,7 @@ class Strategy(object):
                 # self.end_rate(self.HowEnd)
                 # print('---')
             # elif not self.game_is_done():
+                
             else:
                 # print('self.game_is_done()',self.game_is_done())
                 rospy.wait_for_service('/nubot1/BallHandle')
@@ -482,7 +485,7 @@ class Strategy(object):
                             self.turn(self.RadTurn)
                         else : # 轉到
                             self.kick()
-                            # rospy.spin
+                            
     def workB(self):
         # catch = False
         while not rospy.is_shutdown():
