@@ -41,9 +41,9 @@ pwr = 1.0
 _state = "null"
 #adjustable parameter
 angle_thres = 0.05 * 1 #(*1 a little bit slow)
-RotConst = 4 #4 maybe 6
-MAX_PWR = 3 #2 or 3
-MaxSpd_A = 150 #無關 200 or 250
+RotConst = 4 #4 maybe 6 # ? max = 3 
+MAX_PWR = 2 #2 or 3
+MaxSpd_A = 100 #無關 200 or 250
 MaxSpd_B = 100 #無關 200 or 250
 l_rate = 1.0 # times(*)
 
@@ -86,6 +86,8 @@ class Strategy(object):
         self.is_kick = False
         self.ready2restart = True
         self.list_rate = list(np.zeros(128))
+        self.milestone=[0, 0, 0, 0, 0, 0, 0]
+        self.milestone_idx =0 
     def callback(self, data): # Rostopic 之從外部得到的值
         self.RadHead2Ball = data.ballinfo.real_pos.angle 
         self.RadHead = data.robotinfo[0].heading.theta
@@ -189,30 +191,10 @@ class Strategy(object):
         else:
             return False
     def steal(self):
-        if self.call_B_Handle(1).BallIsHolding:
+        if self.call_B_Handle(1).BallIsHolding and not self.call_Handle(1).BallIsHolding:
             return True
         else:
             return False
-
-    def workB(self):
-        # catch = False
-        while not rospy.is_shutdown():
-            self.call_Handle(1) #start holding device
-            if not self.call_Handle(1).BallIsHolding:  # BallIsHolding = 0
-                # self.call_Handle(1)
-                self.chase(MaxSpd_B)
-                # catch = False
-            else: # BallIsHolding = 1
-                # self.chase(MaxSpd_B)
-                # if not catch:
-                #     catch = True
-                #     ticks = time.time()
-                #     ticks = ticks + 3 # sec # steal time
-                # if time.time() > ticks:
-                # self.steal_pub.publish(True) # 2C
-                self.show('steal')
-
-                # ticks += 5
 
     def stealorfly(self):
         if self.steal() or self.fly():
@@ -274,6 +256,11 @@ class Strategy(object):
         self.vec.Vy = MaxSpd * math.sin(self.RadHead2Ball)
         self.vec.w = self.RadHead2Ball * RotConst
         self.vel_pub.publish(self.vec)
+    def chase_B(self, MaxSpd):
+        self.vec.Vx = MaxSpd * math.cos(self.RadHead2Ball)
+        self.vec.Vy = MaxSpd * math.sin(self.RadHead2Ball)
+        self.vec.w = self.RadHead2Ball * RotConst/2
+        self.vel_pub.publish(self.vec)
         # self.show("Chasing")
     def turn(self, angle):
         global MaxSpd_A
@@ -309,7 +296,7 @@ class Strategy(object):
     def reset_ball(self):
         Ball_msg = ModelState()
         Ball_msg.model_name = 'football'
-        Ball_msg.pose.position.x = -6.8
+        Ball_msg.pose.position.x = -6 #-6.8
         Ball_msg.pose.position.y = 0
         Ball_msg.pose.position.z = 0.12
         Ball_msg.pose.orientation.x = 0
@@ -320,7 +307,7 @@ class Strategy(object):
     def reset_A(self):
         A_msg = ModelState()
         A_msg.model_name = 'nubot1'
-        A_msg.pose.position.x = -8.5
+        A_msg.pose.position.x = -8 #-8.5
         A_msg.pose.position.y = 0
         A_msg.pose.position.z = 0
         A_msg.pose.orientation.x = 0
@@ -331,7 +318,7 @@ class Strategy(object):
     def reset_B(self):
         B_msg = ModelState()
         B_msg.model_name = 'rival1'
-        B_msg.pose.position.x = 0
+        B_msg.pose.position.x = 2 #0
         B_msg.pose.position.y = 0
         B_msg.pose.position.z = 0
         B_msg.pose.orientation.x = 0
@@ -347,7 +334,7 @@ class Strategy(object):
         self.reset_ball() 
         self.reset_ball()
         print('Game %d over' %(self.game_count-1))
-        self.show('-----------Restart-----------')
+        print('-----------Restart-----------')
         print('Game %d start' %self.game_count)
         self.reset_A()
         self.reset_A() 
@@ -366,7 +353,28 @@ class Strategy(object):
         in_count  = self.list_rate.count(1)
         steal_count=self.list_rate.count(-1)
         print('in_rate',in_count/128,'out_rate',out_count/128,'steal_rate',steal_count/128)
-        
+        if in_count/128 != 0  and self.milestone_idx == 0:
+            self.milestone[0]=self.game_count
+            self.milestone_idx = self.milestone_idx +1 
+        if in_count/128 >= 0.1 and self.milestone_idx ==1:
+            self.milestone[1]=self.game_count
+            self.milestone_idx = self.milestone_idx +1 
+        if in_count/128 >= 0.2 and self.milestone_idx ==2:
+            self.milestone[2]=self.game_count
+            self.milestone_idx = self.milestone_idx +1 
+        if in_count/128 >= 0.5 and self.milestone_idx ==3:
+            self.milestone[3]=self.game_count
+            self.milestone_idx = self.milestone_idx +1 
+        if in_count/128 >= 0.8 and self.milestone_idx ==4:
+            self.milestone[4]=self.game_count
+            self.milestone_idx = self.milestone_idx +1
+        if in_count/128 >= 0.9 and self.milestone_idx ==5:
+            self.milestone[5]=self.game_count
+            self.milestone_idx = self.milestone_idx +1
+        if in_count/128 == 1  and self.milestone_idx ==6:
+            self.milestone[6]=self.game_count
+            self.milestone_idx = self.milestone_idx +1
+        print('milestone',self.milestone)
     def game_is_done(self):
         if self.ball_in() or self.ball_out() or self.stealorfly():
             if self.ball_in():
@@ -387,7 +395,6 @@ class Strategy(object):
         while not rospy.is_shutdown():
             # print(self.ball_in(), self.ball_out(), self.stealorfly())
             self.call_Handle(1) # open holding device
-
             if self.game_is_done() and real_resart:
                 self.r = self.cnt_rwd()
                 # print('h',self.HowEnd)
@@ -418,11 +425,12 @@ class Strategy(object):
                 if not self.call_Handle(1).BallIsHolding :  # BallIsHolding = 0
                     self.chase(MaxSpd_A)
                     fisrt_time_hold = True
-                    real_resart = True
+                    
                 elif self.call_Handle(1).BallIsHolding : # BallIsHolding = 1
                     global RadHead
                     self.chase(MaxSpd_A)
                     if fisrt_time_hold == True:
+                        real_resart = True #
                         self.chase(MaxSpd_A)
                         self.show('Touch')
                         self.r = self.cnt_rwd()
@@ -459,18 +467,18 @@ class Strategy(object):
         while not rospy.is_shutdown():
             self.call_Handle(1) #start holding device
             if not self.call_Handle(1).BallIsHolding:  # BallIsHolding = 0
-                # self.call_Handle(1)
-                self.chase(MaxSpd_B)
+                self.steal_pub.publish(False)
+                self.chase_B(MaxSpd_B)
                 # catch = False
             else: # BallIsHolding = 1
-                # self.chase(MaxSpd_B)
+                # self.chase(MaxSpd_B/4)
                 # if not catch:
-                #     catch = True
-                #     ticks = time.time()
-                #     ticks = ticks + 3 # sec # steal time
+                    # catch = True
+                    # ticks = time.time()
+                    # ticks = ticks + 1 # sec # steal time
                 # if time.time() > ticks:
-                # self.steal_pub.publish(True) # 2C
-                self.show('steal')
+                    self.steal_pub.publish(True) # 2C
+                # self.show('steal')
 
                 # ticks += 5
     
