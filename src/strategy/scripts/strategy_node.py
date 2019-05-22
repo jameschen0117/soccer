@@ -41,7 +41,7 @@ pwr = 1.0
 _state = "null"
 #adjustable parameter
 angle_thres = 0.05 * 1 #(*1 a little bit slow)
-RotConst = 4 #4 maybe 6 # ? max = 3 
+RotConst = 3 #4 maybe 6 # ? max = 3 
 MAX_PWR = 2 #2 or 3
 MaxSpd_A = 100 #無關 200 or 250
 MaxSpd_B = 100 #無關 200 or 250
@@ -88,6 +88,11 @@ class Strategy(object):
         self.list_rate = list(np.zeros(128))
         self.milestone=[0, 0, 0, 0, 0, 0, 0]
         self.milestone_idx =0 
+        self.is_in = False
+        self.is_out = False
+        self.is_steal = False
+        self.is_fly = False
+        self.is_stealorfly = False
     def callback(self, data): # Rostopic 之從外部得到的值
         self.RadHead2Ball = data.ballinfo.real_pos.angle 
         self.RadHead = data.robotinfo[0].heading.theta
@@ -135,8 +140,7 @@ class Strategy(object):
             # rospy.Subscriber('coach/HowEnd', Int16, self.HowEnd_callback)
             # rospy.Subscriber("/rival1/steal", Bool, self.steal_callback)
             
-            rospy.wait_for_service('/nubot1/BallHandle')
-            self.call_Handle = rospy.ServiceProxy('/nubot1/BallHandle', BallHandle)
+
             
             rospy.wait_for_service('/nubot1/Shoot')
             self.call_Shoot = rospy.ServiceProxy('/nubot1/Shoot', Shoot)
@@ -146,7 +150,8 @@ class Strategy(object):
 
             # rospy.wait_for_service('/gazebo/set_model_state')
             # self.call_set_modol = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
-
+            rospy.wait_for_service('/nubot1/BallHandle')
+            self.call_Handle = rospy.ServiceProxy('/nubot1/BallHandle', BallHandle)
             rospy.wait_for_service('/rival1/BallHandle')
             self.call_B_Handle = rospy.ServiceProxy('/rival1/BallHandle', BallHandle)
         elif self.team == 'B':
@@ -156,8 +161,7 @@ class Strategy(object):
             rospy.Subscriber("/rival1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
             rospy.wait_for_service('/rival1/BallHandle')
             self.call_Handle = rospy.ServiceProxy('/rival1/BallHandle', BallHandle)
-            rospy.wait_for_service('/rival1/Shoot')
-            self.call_Shoot = rospy.ServiceProxy('/rival1/Shoot', Shoot)
+
         else :
             rospy.init_node('coach', anonymous=True)
             self.state_pub  = rospy.Publisher('/coach/state', String, queue_size=1)
@@ -174,38 +178,26 @@ class Strategy(object):
     def ball_out(self):
         if self.BallPosX >= 875 or self.BallPosX <= -875 or self.BallPosY >= 590 or self.BallPosY <= -590 :
             self.show('Out')
-            return True
-        else:
-            return False
-
+            self.is_out = True
+        
     def ball_in(self):
         if self.BallPosX >= 670 and self.BallPosX <= 875 and self.BallPosY >= -330 and self.BallPosY <= 330 :
             self.show('in')
-            return True
-        else:
-            return False
+            self.is_in = True
 
     def fly(self):
         if self.A_z > 0.2 or self.B_z > 0.2 :
-            return True
-        else:
-            return False
+            self.is_fly = True
     def steal(self):
+        rospy.wait_for_service('/nubot1/BallHandle')
+        rospy.wait_for_service('/rival1/BallHandle')
         if self.call_B_Handle(1).BallIsHolding and not self.call_Handle(1).BallIsHolding:
-            return True
-        else:
-            return False
+            self.is_steal = True
 
     def stealorfly(self):
-        if self.steal() or self.fly():
-            if self.steal():
-                self.show('steal')
-            elif self.fly():
-                self.show('fly')
-            return True
-        else:
-            return False
-
+        if self.is_fly or self.is_steal:
+            self.is_stealorfly = True
+        
     def show(self, state):
         global _state
         if  state != _state :
@@ -220,11 +212,13 @@ class Strategy(object):
                 data.data[4] = 1
                 data.data[5] = 0
                 data.data[6] = 0
-            if self.HowEnd == -1:
+                
+            elif self.HowEnd == -1:
                 data.data[4] = 0
                 data.data[5] = 0
                 data.data[6] = 1
-            if self.HowEnd == -2:
+                
+            elif self.HowEnd == -2:
                 data.data[4] = 0
                 data.data[5] = 1
                 data.data[6] = 0
@@ -245,12 +239,14 @@ class Strategy(object):
         self.vec.w = 0
         self.vel_pub.publish(self.vec)
         global pwr
+        rospy.wait_for_service('/nubot1/Shoot')
         self.call_Shoot(pwr, 1) # power from GAFuzzy
         global kick_count
         self.kick_count = self.kick_count + 1
         time.sleep(0.2)
         print ("Kick: %d" %self.kick_count)
         print('---')
+
     def chase(self, MaxSpd):
         self.vec.Vx = MaxSpd * math.cos(self.RadHead2Ball)
         self.vec.Vy = MaxSpd * math.sin(self.RadHead2Ball)
@@ -346,6 +342,12 @@ class Strategy(object):
 
         # print('after call_restart')
         self.ready2restart =False
+        self.is_fly = False
+        self.is_steal = False
+        self.is_stealorfly = False
+        self.is_in = False
+        self.is_out = False
+
         # print('i finish def restart(self)')
     def end_rate(self, end):
         self.list_rate[self.game_count%128] = end
@@ -376,13 +378,20 @@ class Strategy(object):
             self.milestone_idx = self.milestone_idx +1
         print('milestone',self.milestone)
     def game_is_done(self):
-        if self.ball_in() or self.ball_out() or self.stealorfly():
-            if self.ball_in():
+        self.ball_in()
+        self.ball_out()
+        self.steal()
+        self.fly()
+        self.stealorfly()
+        if self.is_in or self.is_out or self.is_stealorfly:
+            if self.is_in:
                 self.HowEnd = 1
-            if self.ball_out():
+            elif self.is_out:
                 self.HowEnd = -2
-            if self.stealorfly():
+            elif self.is_stealorfly:
                 self.HowEnd = -1
+            else:
+                print('err')
             return True
         else:
             return False
@@ -394,8 +403,11 @@ class Strategy(object):
         real_resart = True
         while not rospy.is_shutdown():
             # print(self.ball_in(), self.ball_out(), self.stealorfly())
+            rospy.wait_for_service('/nubot1/BallHandle')
             self.call_Handle(1) # open holding device
+            
             if self.game_is_done() and real_resart:
+                # print('self.game_is_done()',self.game_is_done())
                 self.r = self.cnt_rwd()
                 # print('h',self.HowEnd)
                 s_ = self.sac_cal.input(self.HowEnd) #out state
@@ -415,17 +427,26 @@ class Strategy(object):
                 # self.ready2restart_pub.publish(True)
                 # self.ready2restart_pub.publish(False)
                 real_resart = False
-                self.HowEnd=0
+                self.HowEnd = 0
                 # print('i want to go in self.restart()')
                 self.restart()
                 # self.end_rate(self.HowEnd)
                 # print('---')
             # elif not self.game_is_done():
             else:
+                # print('self.game_is_done()',self.game_is_done())
+                rospy.wait_for_service('/nubot1/BallHandle')
                 if not self.call_Handle(1).BallIsHolding :  # BallIsHolding = 0
                     self.chase(MaxSpd_A)
                     fisrt_time_hold = True
-                    
+                    rospy.wait_for_service('/nubot1/BallHandle')
+                    # do real reset before holding
+                    self.ready2restart =False
+                    self.is_fly = False
+                    self.is_steal = False
+                    self.is_stealorfly = False
+                    self.is_in = False
+                    self.is_out = False
                 elif self.call_Handle(1).BallIsHolding : # BallIsHolding = 1
                     global RadHead
                     self.chase(MaxSpd_A)
@@ -461,11 +482,12 @@ class Strategy(object):
                             self.turn(self.RadTurn)
                         else : # 轉到
                             self.kick()
-                            
+                            # rospy.spin
     def workB(self):
         # catch = False
         while not rospy.is_shutdown():
-            self.call_Handle(1) #start holding device
+            rospy.wait_for_service('/rival1/BallHandle')
+            # self.call_Handle(1) #start holding device
             if not self.call_Handle(1).BallIsHolding:  # BallIsHolding = 0
                 self.steal_pub.publish(False)
                 self.chase_B(MaxSpd_B)
