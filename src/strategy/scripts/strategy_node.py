@@ -87,6 +87,7 @@ class Strategy(object):
         self.ready2restart = True
         self.list_rate = list(np.zeros(128))
         self.milestone=[0, 0, 0, 0, 0, 0, 0]
+        self.step_milestone=[0, 0, 0, 0, 0, 0, 0]
         self.milestone_idx =0 
         self.is_in = False
         self.is_out = False
@@ -94,6 +95,7 @@ class Strategy(object):
         self.is_fly = False
         self.is_stealorfly = False
         self.real_resart = True
+        self.step_count = 0
     def callback(self, data): # Rostopic 之從外部得到的值
         self.RadHead2Ball = data.ballinfo.real_pos.angle 
         self.RadHead = data.robotinfo[0].heading.theta
@@ -248,6 +250,7 @@ class Strategy(object):
                 break
             if not self.call_Handle(1).BallIsHolding:
                 self.kick_count = self.kick_count + 1
+                self.step_count = self.step_count + 1
                 # time.sleep(0.2)
                 print ("Kick: %d" %self.kick_count)
                 print('-------')
@@ -263,7 +266,7 @@ class Strategy(object):
     def chase_B(self, MaxSpd):
         self.vec.Vx = MaxSpd * math.cos(self.RadHead2Ball)
         self.vec.Vy = MaxSpd * math.sin(self.RadHead2Ball)
-        self.vec.w = self.RadHead2Ball * RotConst/4
+        self.vec.w = self.RadHead2Ball * RotConst #/4
         self.vel_pub.publish(self.vec)
         # self.show("Chasing")
     def turn(self, angle):
@@ -322,8 +325,10 @@ class Strategy(object):
     def reset_B(self):
         B_msg = ModelState()
         B_msg.model_name = 'rival1'
-        B_msg.pose.position.x = 2 #0
-        B_msg.pose.position.y = 0
+        a = [[2,0],[1, -2],[1, 2],[0,4],[0,-4]]
+        b = a[random.randint(0, 4)]
+        B_msg.pose.position.x = b[0]
+        B_msg.pose.position.y = b[1]
         B_msg.pose.position.z = 0
         B_msg.pose.orientation.x = 0
         B_msg.pose.orientation.y = 0
@@ -365,26 +370,34 @@ class Strategy(object):
         print('in_rate',in_count/128,'out_rate',out_count/128,'steal_rate',steal_count/128)
         if in_count/128 != 0  and self.milestone_idx == 0:
             self.milestone[0]=self.game_count
+            self.step_milestone[0]=self.step_count
             self.milestone_idx = self.milestone_idx +1 
         if in_count/128 >= 0.1 and self.milestone_idx ==1:
             self.milestone[1]=self.game_count
+            self.step_milestone[1]=self.step_count
             self.milestone_idx = self.milestone_idx +1 
         if in_count/128 >= 0.2 and self.milestone_idx ==2:
             self.milestone[2]=self.game_count
+            self.step_milestone[2]=self.step_count
             self.milestone_idx = self.milestone_idx +1 
         if in_count/128 >= 0.5 and self.milestone_idx ==3:
             self.milestone[3]=self.game_count
+            self.step_milestone[3]=self.step_count
             self.milestone_idx = self.milestone_idx +1 
         if in_count/128 >= 0.8 and self.milestone_idx ==4:
             self.milestone[4]=self.game_count
+            self.step_milestone[4]=self.step_count
             self.milestone_idx = self.milestone_idx +1
         if in_count/128 >= 0.9 and self.milestone_idx ==5:
             self.milestone[5]=self.game_count
+            self.step_milestone[5]=self.step_count
             self.milestone_idx = self.milestone_idx +1
         if in_count/128 == 1  and self.milestone_idx ==6:
             self.milestone[6]=self.game_count
+            self.step_milestone[6]=self.step_count
             self.milestone_idx = self.milestone_idx +1
         print('milestone',self.milestone)
+        print('milestone',self.step_milestone)
     def game_is_done(self):
         self.ball_in()
         self.ball_out()
@@ -474,7 +487,7 @@ class Strategy(object):
                         rel_turn_ang = self.sac_cal.output(self.a)       #action_from_sac
 
                         global pwr, MAX_PWR
-                        pwr = (self.a[1]+1) * MAX_PWR/2 + 1.3    #normalize
+                        pwr = (self.a[1]+1) * MAX_PWR/2 + 1.4    #normalize
                         # sac]
                                         
                         rel_turn_rad = math.radians(rel_turn_ang)
