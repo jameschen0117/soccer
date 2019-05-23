@@ -44,7 +44,7 @@ angle_thres = 0.05 * 1 #(*1 a little bit slow)
 RotConst = 3 #4 maybe 6 # ? max = 3 
 MAX_PWR = 2 #2 or 3
 MaxSpd_A = 100 #無關 200 or 250
-MaxSpd_B = 90 #無關 200 or 250
+MaxSpd_B = 100 #無關 200 or 250
 l_rate = 1.0 # times(*)
 
 class Strategy(object):
