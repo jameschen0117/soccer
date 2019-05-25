@@ -56,6 +56,7 @@ class Strategy(object):
         self.r = 0.0
         self.done = False
 
+        
         self.avg_arr = np.zeros(64)
         self.team = team
         self.RadHead2Ball = 0.0
@@ -118,8 +119,8 @@ class Strategy(object):
     def done_callback(self, data):
         self.done = data.data
     def fly_callback(self, data):
-        self.A_z = data.pos[5].position.z
-        self.B_z = data.pos[6].position.z
+        self.A_z = data.pose[5].position.z
+        self.B_z = data.pose[6].position.z
     def HowEnd_callback(self,data):
         self.HowEnd = data.data
     def ready2restart_callback(self, data):
@@ -137,6 +138,7 @@ class Strategy(object):
             self.reset_pub = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size=10)
             # self.ready2restart_pub  = rospy.Publisher('nubot1/ready2restart',Bool, queue_size=1)
             rospy.Subscriber("/nubot1/omnivision/OmniVisionInfo", OminiVisionInfo, self.callback)
+            rospy.Subscriber('gazebo/model_states', ModelStates, self.fly_callback)
             # rospy.Subscriber('/coach/state', String, self.state_callback)
             # rospy.Subscriber('/coach/reward', Float32, self.reward_callback)
             # rospy.Subscriber('/coach/done', Bool, self.done_callback)
@@ -184,13 +186,14 @@ class Strategy(object):
             self.is_out = True
         
     def ball_in(self):
-        if self.BallPosX >= 670 and self.BallPosX <= 875 and self.BallPosY >= -330 and self.BallPosY <= 330 :
+        if self.BallPosX >= 870 and self.BallPosX <= 900 and self.BallPosY >= -100 and self.BallPosY <= 100 :
             self.show('in')
             self.is_in = True
 
     def fly(self):
-        if self.A_z > 0.2 or self.B_z > 0.2 :
+        if self.A_z > 0.34 or self.B_z > 0.34 :
             self.is_fly = True
+
     def steal(self):
         rospy.wait_for_service('/nubot1/BallHandle')
         rospy.wait_for_service('/rival1/BallHandle')
@@ -250,7 +253,6 @@ class Strategy(object):
                 break
             if not self.call_Handle(1).BallIsHolding:
                 self.kick_count = self.kick_count + 1
-                self.step_count = self.step_count + 1
                 # time.sleep(0.2)
                 print ("Kick: %d" %self.kick_count)
                 print('-------')
@@ -303,8 +305,8 @@ class Strategy(object):
     def reset_ball(self):
         Ball_msg = ModelState()
         Ball_msg.model_name = 'football'
-        Ball_msg.pose.position.x = -6 #-6.8
-        Ball_msg.pose.position.y = 0
+        Ball_msg.pose.position.x = -6.8 #-6 #-6.8
+        Ball_msg.pose.position.y = random.uniform(-3.3,3.3)
         Ball_msg.pose.position.z = 0.12
         Ball_msg.pose.orientation.x = 0
         Ball_msg.pose.orientation.y = 0
@@ -314,8 +316,8 @@ class Strategy(object):
     def reset_A(self):
         A_msg = ModelState()
         A_msg.model_name = 'nubot1'
-        A_msg.pose.position.x = -8 #-8.5
-        A_msg.pose.position.y = 0
+        A_msg.pose.position.x = -8.3 #-8 #-8.5
+        A_msg.pose.position.y = random.uniform(-1.7,1.7) #0
         A_msg.pose.position.z = 0
         A_msg.pose.orientation.x = 0
         A_msg.pose.orientation.y = 0
@@ -325,10 +327,11 @@ class Strategy(object):
     def reset_B(self):
         B_msg = ModelState()
         B_msg.model_name = 'rival1'
-        a = [[2,0],[1, -2],[1, 2],[0,4],[0,-4]]
-        b = a[random.randint(0, 4)]
-        B_msg.pose.position.x = b[0]
-        B_msg.pose.position.y = b[1]
+        # a = [[2,0],[1, -2],[1, 2],[0,4],[0,-4]]
+        # b = a[random.randint(0, 4)]
+        c = random.uniform(-5,5)
+        B_msg.pose.position.x = 0
+        B_msg.pose.position.y = c
         B_msg.pose.position.z = 0
         B_msg.pose.orientation.x = 0
         B_msg.pose.orientation.y = 0
@@ -438,7 +441,8 @@ class Strategy(object):
                     self.ep_rwd = self.r
                     print('ep rwd value=',self.r)
                     self.end_rate(self.HowEnd)
-                i += 1 
+                self.step_count = self.step_count + 1
+                i += 1
                 self.s = s_
                 self.done = False
                 if i > 512: # 64
@@ -480,6 +484,7 @@ class Strategy(object):
                             if len(self.s) == 12 and len(s_) == 12:
                                 self.agent.replay_buffer.store_transition(self.s, self.a, self.r, s_, self.done)
                             print('step rwd value= ',self.r)
+                        self.step_count = self.step_count + 1
                         self.done = False
                         i += 1  
                         self.s = s_

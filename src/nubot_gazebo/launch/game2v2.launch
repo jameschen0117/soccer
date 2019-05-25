@@ -1,0 +1,29 @@
+<launch>
+  <rosparam file="$(find nubot_gazebo)/config/global_config_2v2.yaml" command="load" />
+
+  <!-- these are the arguments you can pass this launch file, for example paused:=true -->
+  <arg name="paused" default="false"/>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="gui" default="false"/>
+  <arg name="headless" default="false"/>
+  <arg name="debug" default="false"/> 
+  <arg name="verbose" default="false"/>
+
+  <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find nubot_gazebo)/worlds/robocup15MSL.world"/>
+    <arg name="gui" default="true"/>
+    <arg name="verbose"  value="true"/>
+    <arg name="paused"   value="false"/>
+
+  </include>
+
+  <!-- 
+  That -g flag as below is given to turn off the gazebo gui if you're going to be working from the local machine
+  -->
+  
+  <node name="robot_up_2v2" pkg="nubot_gazebo" type="robot_up_2v2.sh" args="-g" respawn="false" output="screen" />
+
+  <include file="$(find transfer)/launch/transfer.launch"/>
+
+</launch>

@@ -39,8 +39,3 @@ do
                                   -x ${magenta_x[$i]} -y ${magenta_y[$i]} -z 0.0 &
     sleep 0.5
 done 
-
-
-### use joystick
-rosrun joy joy_node &
-
