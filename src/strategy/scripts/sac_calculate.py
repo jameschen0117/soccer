@@ -64,7 +64,7 @@ class sac_calculate():
         b = 0.5 # goal
         c = 0.5 # start
         d = 0.3 # opp
-        e = 10 # in 5
+        e = 50 # in 5
         f = -10 # out -4
         g = -5 # steal or fly
         # print(reward)
