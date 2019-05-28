@@ -44,7 +44,7 @@ angle_thres = 0.05 * 1 #(*1 a little bit slow)
 RotConst = 3 #4 maybe 6 # ? max = 3 
 MAX_PWR = 2 #2 or 3
 MaxSpd_A = 100 #無關 200 or 250
-MaxSpd_B = 100 #無關 200 or 250
+MaxSpd_B = 95 #無關 200 or 250
 l_rate = 1.0 # times(*)
 
 class Strategy(object):
@@ -87,8 +87,8 @@ class Strategy(object):
         self.is_kick = False
         self.ready2restart = True
         self.list_rate = list(np.zeros(128))
-        self.milestone=[0, 0, 0, 0, 0, 0, 0]
-        self.step_milestone=[0, 0, 0, 0, 0, 0, 0]
+        self.milestone=[0, 0, 0, 0, 0, 0, 0, 0 , 0 , 0 , 0 ]
+        self.step_milestone=[0, 0, 0, 0, 0, 0, 0, 0 , 0 , 0 , 0 ]
         self.milestone_idx =0 
         self.is_in = False
         self.is_out = False
@@ -268,7 +268,7 @@ class Strategy(object):
     def chase_B(self, MaxSpd):
         self.vec.Vx = MaxSpd * math.cos(self.RadHead2Ball)
         self.vec.Vy = MaxSpd * math.sin(self.RadHead2Ball)
-        self.vec.w = self.RadHead2Ball * RotConst #/4
+        self.vec.w = self.RadHead2Ball * RotConst/4#######
         self.vel_pub.publish(self.vec)
         # self.show("Chasing")
     def turn(self, angle):
@@ -318,8 +318,8 @@ class Strategy(object):
         A_msg = ModelState()
         A_msg.model_name = 'nubot1'
         A_msg.pose.position.x = -8.3 #-8 #-8.5
-        # A_msg.pose.position.y = random.uniform(-1.7,1.7) #0
-        A_msg.pose.position.y = 0
+        A_msg.pose.position.y = random.uniform(-1.7,1.7) #0
+        # A_msg.pose.position.y = 0
         A_msg.pose.position.z = 0
         A_msg.pose.orientation.x = 0
         A_msg.pose.orientation.y = 0
@@ -384,23 +384,55 @@ class Strategy(object):
         if in_count/128 >= 0.2 and self.milestone_idx ==2:
             self.milestone[2]=self.game_count
             self.step_milestone[2]=self.step_count
-            self.milestone_idx = self.milestone_idx +1 
-        if in_count/128 >= 0.5 and self.milestone_idx ==3:
+            self.milestone_idx = self.milestone_idx +1
+        if in_count/128 >= 0.3 and self.milestone_idx ==3:
             self.milestone[3]=self.game_count
             self.step_milestone[3]=self.step_count
-            self.milestone_idx = self.milestone_idx +1 
-        if in_count/128 >= 0.8 and self.milestone_idx ==4:
+            self.milestone_idx = self.milestone_idx +1
+        if in_count/128 >= 0.4 and self.milestone_idx ==4:
             self.milestone[4]=self.game_count
             self.step_milestone[4]=self.step_count
             self.milestone_idx = self.milestone_idx +1
-        if in_count/128 >= 0.9 and self.milestone_idx ==5:
+        if in_count/128 >= 0.5 and self.milestone_idx ==5:
             self.milestone[5]=self.game_count
             self.step_milestone[5]=self.step_count
             self.milestone_idx = self.milestone_idx +1
-        if in_count/128 == 1  and self.milestone_idx ==6:
+        if in_count/128 >= 0.6 and self.milestone_idx ==6:
             self.milestone[6]=self.game_count
             self.step_milestone[6]=self.step_count
             self.milestone_idx = self.milestone_idx +1
+        if in_count/128 >= 0.7 and self.milestone_idx ==7:
+            self.milestone[7]=self.game_count
+            self.step_milestone[7]=self.step_count
+            self.milestone_idx = self.milestone_idx +1
+        if in_count/128 >= 0.8 and self.milestone_idx ==8:
+            self.milestone[8]=self.game_count
+            self.step_milestone[8]=self.step_count
+            self.milestone_idx = self.milestone_idx +1
+        if in_count/128 >= 0.9 and self.milestone_idx ==9:
+            self.milestone[9]=self.game_count
+            self.step_milestone[9]=self.step_count
+            self.milestone_idx = self.milestone_idx +1
+        if in_count/128 >= 1.0 and self.milestone_idx ==10:
+            self.milestone[10]=self.game_count
+            self.step_milestone[10]=self.step_count
+            self.milestone_idx = self.milestone_idx +1
+        # if in_count/128 >= 0.5 and self.milestone_idx ==3:
+        #     self.milestone[3]=self.game_count
+        #     self.step_milestone[3]=self.step_count
+        #     self.milestone_idx = self.milestone_idx +1 
+        # if in_count/128 >= 0.8 and self.milestone_idx ==4:
+        #     self.milestone[4]=self.game_count
+        #     self.step_milestone[4]=self.step_count
+        #     self.milestone_idx = self.milestone_idx +1
+        # if in_count/128 >= 0.9 and self.milestone_idx ==5:
+        #     self.milestone[5]=self.game_count
+        #     self.step_milestone[5]=self.step_count
+        #     self.milestone_idx = self.milestone_idx +1
+        # if in_count/128 == 1  and self.milestone_idx ==6:
+        #     self.milestone[6]=self.game_count
+        #     self.step_milestone[6]=self.step_count
+        #     self.milestone_idx = self.milestone_idx +1
         print('milestone',self.milestone)
         print('milestone',self.step_milestone)
     def game_is_done(self):
