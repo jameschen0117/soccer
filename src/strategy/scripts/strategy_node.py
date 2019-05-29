@@ -306,8 +306,8 @@ class Strategy(object):
         Ball_msg = ModelState()
         Ball_msg.model_name = 'football'
         Ball_msg.pose.position.x = -6.8 #-6 #-6.8
-        # Ball_msg.pose.position.y = random.uniform(-3.3,3.3)
-        Ball_msg.pose.position.y = 0
+        Ball_msg.pose.position.y = random.uniform(-3.3,3.3)
+        # Ball_msg.pose.position.y = 0
         Ball_msg.pose.position.z = 0.12
         Ball_msg.pose.orientation.x = 0
         Ball_msg.pose.orientation.y = 0
