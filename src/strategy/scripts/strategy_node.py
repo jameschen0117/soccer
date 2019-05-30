@@ -144,9 +144,7 @@ class Strategy(object):
             # rospy.Subscriber('/coach/done', Bool, self.done_callback)
             # rospy.Subscriber('coach/HowEnd', Int16, self.HowEnd_callback)
             # rospy.Subscriber("/rival1/steal", Bool, self.steal_callback)
-            
 
-            
             rospy.wait_for_service('/nubot1/Shoot')
             self.call_Shoot = rospy.ServiceProxy('/nubot1/Shoot', Shoot)
             
@@ -333,7 +331,7 @@ class Strategy(object):
         # b = a[random.randint(0, 4)]
         c = random.uniform(-5,5)
         B_msg.pose.position.x = 0
-        B_msg.pose.position.y = 0 #c
+        B_msg.pose.position.y = c
         B_msg.pose.position.z = 0
         B_msg.pose.orientation.x = 0
         B_msg.pose.orientation.y = 0

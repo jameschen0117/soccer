@@ -11,3 +11,5 @@ devel/
 CMakeLists.txt.*
 *~
 *.tar.gz
+*.pyc
+
