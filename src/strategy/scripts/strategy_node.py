@@ -304,8 +304,8 @@ class Strategy(object):
         Ball_msg = ModelState()
         Ball_msg.model_name = 'football'
         Ball_msg.pose.position.x = -6.8 #-6 #-6.8
-        Ball_msg.pose.position.y = random.uniform(-3.3,3.3)
-        # Ball_msg.pose.position.y = 0
+        # Ball_msg.pose.position.y = random.uniform(-3.3,3.3)
+        Ball_msg.pose.position.y = 0
         Ball_msg.pose.position.z = 0.12
         Ball_msg.pose.orientation.x = 0
         Ball_msg.pose.orientation.y = 0
@@ -316,8 +316,8 @@ class Strategy(object):
         A_msg = ModelState()
         A_msg.model_name = 'nubot1'
         A_msg.pose.position.x = -8.3 #-8 #-8.5
-        A_msg.pose.position.y = random.uniform(-1.7,1.7) #0
-        # A_msg.pose.position.y = 0
+        # A_msg.pose.position.y = random.uniform(-1.7,1.7) #0
+        A_msg.pose.position.y = 0
         A_msg.pose.position.z = 0
         A_msg.pose.orientation.x = 0
         A_msg.pose.orientation.y = 0
@@ -329,9 +329,9 @@ class Strategy(object):
         B_msg.model_name = 'rival1'
         # a = [[2,0],[1, -2],[1, 2],[0,4],[0,-4]]
         # b = a[random.randint(0, 4)]
-        c = random.uniform(-5,5)
+        # c = random.uniform(-5,5)
         B_msg.pose.position.x = 0
-        B_msg.pose.position.y = c
+        B_msg.pose.position.y = 0
         B_msg.pose.position.z = 0
         B_msg.pose.orientation.x = 0
         B_msg.pose.orientation.y = 0
